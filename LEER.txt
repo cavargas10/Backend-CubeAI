@@ -1,0 +1,11 @@
+Crear un entorno virtual:
+python -m venv venv
+
+Activar el entorno virtual:
+venv/Scripts/activate.bat
+
+Instala los requirements:
+pip install -r requirements.txt
+
+Hacer funcionar
+python app.py
