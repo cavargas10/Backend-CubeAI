@@ -75,30 +75,43 @@ def create_textimg3d():
     
 @bp.route("/unico3D", methods=["POST"])
 @verify_token_middleware
-def predict_unico3d():
+def predict_unico3d_generation():
     try:
-        user_uid = request.user["uid"]
+        print("request.files:", request.files)
+        print("request.form:", request.form)
+
         image_file = request.files.get("image")
         generation_name = request.form.get("generationName")
+        user_uid = request.user.get("uid")
         
-        # Log received data
-        print(f"Received image_file: {image_file}, generation_name: {generation_name}")
-
-        if not image_file or not generation_name:
-            return jsonify({"error": "Faltan campos requeridos: imagen y/o nombre de generación"}), 400
+        if not image_file:
+            return jsonify({"error": "No se proporcionó ninguna imagen"}), 400
+        if not generation_name:
+            return jsonify({"error": "No se proporcionó un nombre para la generación"}), 400
+        if not user_uid:
+            return jsonify({"error": "No se pudo obtener el UID del usuario"}), 400
         
-        prediction_result = unico3d_service.create_unico3d(user_uid, image_file, generation_name)
+        print(f"image_file: {image_file.filename if image_file else None}")
+        print(f"generation_name: {generation_name}")
+        print(f"user_uid: {user_uid}")
+        
+        # Verificar si la generación ya existe antes de crear una nueva
+        if unico3d_service.unico3d_generation_exists(user_uid, generation_name):
+            return jsonify({"error": f"Ya existe una generación con el nombre '{generation_name}' para este usuario"}), 400
+        
+        prediction_result = unico3d_service.create_unico3d_generation(user_uid, image_file, generation_name)
         return jsonify(prediction_result)
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
-        return jsonify({"error": str(ve)}), 400
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
+        error_message = str(ve) if str(ve) else "Error de valor desconocido en la generación Unico3D"
+        print(f"Error de valor detallado: {error_message}")
+        return jsonify({"error": error_message}), 400
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
-
+        error_message = str(e) if str(e) else "Error interno del servidor desconocido"
+        print(f"Error interno del servidor detallado: {error_message}")
+        print(f"Tipo de excepción: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error interno del servidor: {error_message}"}), 500
     
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
