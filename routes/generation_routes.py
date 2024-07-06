@@ -119,7 +119,7 @@ def get_user_generations():
 def delete_generation(generation_type, generation_name):
     try:
         user_uid = request.user["uid"]
-        print(f"Deleting generation: {generation_name} of type: {generation_type} for user: {user_uid}")
+        
         if generation_type == "Imagen3D":
             success = generation_service.delete_generation(user_uid, generation_name)
         elif generation_type == "Texto3D":

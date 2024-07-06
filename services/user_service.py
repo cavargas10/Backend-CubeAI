@@ -32,20 +32,15 @@ def update_user_name(user_uid, new_name):
 
 def update_profile_picture(user_uid, file):
     try:
-        # Generate a unique filename
         filename = f"{user_uid}_{datetime.datetime.now().timestamp()}"
         
-        # Upload file to Firebase Storage
         blob = bucket.blob(filename)
         blob.upload_from_file(file)
         
-        # Make the blob publicly accessible
         blob.make_public()
         
-        # Get the public URL
         url = blob.public_url
         
-        # Update user document with new profile picture URL
         user_ref = db.collection('users').document(user_uid)
         user_ref.update({"profile_picture": url})
         
