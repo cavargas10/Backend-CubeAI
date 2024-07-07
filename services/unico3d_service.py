@@ -36,6 +36,9 @@ def create_unico3d(user_uid, image_file, generation_name):
             api_name="/generate3dv2"
         )
 
+        if result_generate3dv2 is None:
+            raise RuntimeError("No existen CPU disponibles, inténtalo más tarde")
+
         if isinstance(result_generate3dv2, tuple):
             obj_glb_path = result_generate3dv2[0]  
         else:
@@ -56,6 +59,8 @@ def create_unico3d(user_uid, image_file, generation_name):
         doc_ref.set(prediction_result)
 
         return prediction_result
+    except RuntimeError as e:
+        raise RuntimeError(str(e))
     finally:
         if os.path.exists(unique_filename):
             os.remove(unique_filename)
