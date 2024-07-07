@@ -36,9 +36,6 @@ def create_unico3d(user_uid, image_file, generation_name):
             api_name="/generate3dv2"
         )
 
-        if result_generate3dv2 is None:
-            raise ValueError("No existen CPU disponibles, inténtalo más tarde")
-
         if isinstance(result_generate3dv2, tuple):
             obj_glb_path = result_generate3dv2[0]  
         else:
@@ -63,8 +60,8 @@ def create_unico3d(user_uid, image_file, generation_name):
         error_message = str(e)
         if "You have exceeded your GPU quota" in error_message:
             raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
-        elif result_generate3dv2 is None:
-            raise ValueError("No existen CPU disponibles, inténtalo más tarde")
+        elif "None" in error_message:
+            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
         else:
             raise ValueError(error_message)
     finally:

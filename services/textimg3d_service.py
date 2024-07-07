@@ -63,7 +63,13 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
         )
 
     except Exception as e:
-        raise ValueError(f"Error en la generación 3D: {e}")
+        error_message = str(e)
+        if "You have exceeded your GPU quota" in error_message:
+            raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
+        elif "None" in error_message:
+            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
+        else:
+            raise ValueError(error_message)
     make3d_obj_path, make3d_glb_path = final_result
     generation_folder = f'{user_uid}/TextImg3D/{generation_name}'
     

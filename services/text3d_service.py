@@ -51,7 +51,13 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         )
         
     except Exception as e:
-        raise ValueError(f"Error en la generación 3D: {e}")
+        error_message = str(e)
+        if "You have exceeded your GPU quota" in error_message:
+            raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
+        elif "None" in error_message:
+            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
+        else:
+            raise ValueError(error_message)
 
     generation_folder = f'{user_uid}/Texto3D/{generation_name}'
 

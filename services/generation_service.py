@@ -72,6 +72,15 @@ def create_generation(user_uid, image_file, generation_name):
         doc_ref.set(prediction_result)
 
         return prediction_result
+    
+    except Exception as e:
+        error_message = str(e)
+        if "You have exceeded your GPU quota" in error_message:
+            raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
+        elif "None" in error_message:
+            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
+        else:
+            raise ValueError(error_message)
     finally:
         if os.path.exists(unique_filename):
             os.remove(unique_filename)
