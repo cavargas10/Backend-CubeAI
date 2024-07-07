@@ -12,8 +12,8 @@ def predict_generation():
         generation_name = request.form.get("generationName")
         user_uid = request.user["uid"]
         
-        prediction_result = generation_service.create_generation(user_uid, image_file, generation_name)
-        return jsonify(prediction_result)
+        prediction_img3d_result = generation_service.create_generation(user_uid, image_file, generation_name)
+        return jsonify(prediction_img3d_result)
     except ValueError as ve:
         print(f"Error de valor: {ve}")
         return jsonify({"error": str(ve)}), 400
@@ -36,8 +36,8 @@ def create_text3d():
         if not all([generation_name, user_prompt, selected_style]):
             return jsonify({"error": "Faltan campos requeridos"}), 400
 
-        result = text3d_service.create_text3d(user_uid, generation_name, user_prompt, selected_style)
-        return jsonify(result)
+        prediction_text3d_result = text3d_service.create_text3d(user_uid, generation_name, user_prompt, selected_style)
+        return jsonify(prediction_text3d_result)
     except ValueError as ve:
         print(f"Error de valor: {ve}")
         return jsonify({"error": str(ve)}), 400
@@ -61,8 +61,8 @@ def create_textimg3d():
         if not all([generation_name, subject, style, additional_details]):
             return jsonify({"error": "Faltan campos requeridos"}), 400
 
-        result = textimg3d_service.create_textimg3d(user_uid, generation_name, subject, style, additional_details)
-        return jsonify(result)
+        prediction_textimg3d_result = textimg3d_service.create_textimg3d(user_uid, generation_name, subject, style, additional_details)
+        return jsonify(prediction_textimg3d_result)
     except ValueError as ve:
         print(f"Error de valor: {ve}")
         return jsonify({"error": str(ve)}), 400
@@ -84,8 +84,8 @@ def predict_unico3d():
         if not image_file or not generation_name:
             return jsonify({"error": "Faltan campos requeridos: imagen y/o nombre de generación"}), 400
         
-        prediction_result = unico3d_service.create_unico3d(user_uid, image_file, generation_name)
-        return jsonify(prediction_result)
+        prediction_unico3d_result = unico3d_service.create_unico3d(user_uid, image_file, generation_name)
+        return jsonify(prediction_unico3d_result)
     except ValueError as ve:
         print(f"Error de valor: {ve}")
         return jsonify({"error": str(ve)}), 400

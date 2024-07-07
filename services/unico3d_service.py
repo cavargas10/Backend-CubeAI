@@ -45,7 +45,7 @@ def create_unico3d(user_uid, image_file, generation_name):
 
         obj_glb_url = upload_to_storage(obj_glb_path, f'{generation_folder}/obj_glb.glb')
 
-        prediction_result = {
+        prediction_unico3d_result = {
             "generation_name": generation_name,
             "obj_glb": obj_glb_url,
             "timestamp": datetime.datetime.now().isoformat(),
@@ -53,9 +53,9 @@ def create_unico3d(user_uid, image_file, generation_name):
         }
 
         doc_ref = db.collection('predictions').document(user_uid).collection('Unico3D').document(generation_name)
-        doc_ref.set(prediction_result)
+        doc_ref.set(prediction_unico3d_result)
 
-        return prediction_result
+        return prediction_unico3d_result
     except Exception as e:
         error_message = str(e)
         if "You have exceeded your GPU quota" in error_message:

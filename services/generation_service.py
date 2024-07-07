@@ -58,7 +58,7 @@ def create_generation(user_uid, image_file, generation_name):
         make3d_obj_url = upload_to_storage(make3d_obj_path, f'{generation_folder}/make3d.obj')
         make3d_glb_url = upload_to_storage(make3d_glb_path, f'{generation_folder}/make3d.glb')
 
-        prediction_result = {
+        prediction_img3d_result = {
             "generation_name": generation_name,
             "check_input_image": result_check_input,
             "preprocess": preprocess_url,
@@ -69,9 +69,9 @@ def create_generation(user_uid, image_file, generation_name):
         }
 
         doc_ref = db.collection('predictions').document(user_uid).collection('Imagen3D').document(generation_name)
-        doc_ref.set(prediction_result)
+        doc_ref.set(prediction_img3d_result)
 
-        return prediction_result
+        return prediction_img3d_result
     
     except Exception as e:
         error_message = str(e)

@@ -78,7 +78,7 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         if os.path.exists(obj_model_path):
             os.remove(obj_model_path)
     
-    prediction_result = {
+    prediction_text3d_result = {
         "generation_name": generation_name,
         "user_prompt": user_prompt,
         "selected_style": selected_style,
@@ -93,9 +93,9 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
     }
 
     doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
-    doc_ref.set(prediction_result)
+    doc_ref.set(prediction_text3d_result)
 
-    return prediction_result
+    return prediction_text3d_result
 
 def get_user_text3d_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Texto3D')

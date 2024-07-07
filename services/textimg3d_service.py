@@ -85,7 +85,7 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
         if os.path.exists(make3d_obj_path):
             os.remove(make3d_obj_path)
 
-    prediction_result = {
+    prediction_textimg3d_result = {
         "generation_name": generation_name,
         "subject": subject,
         "style": style,
@@ -98,9 +98,9 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
     }
 
     doc_ref = db.collection('predictions').document(user_uid).collection('TextImg3D').document(generation_name)
-    doc_ref.set(prediction_result)
+    doc_ref.set(prediction_textimg3d_result)
 
-    return prediction_result
+    return prediction_textimg3d_result
 
 def get_user_textimg3d_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('TextImg3D')
