@@ -37,7 +37,7 @@ def create_unico3d(user_uid, image_file, generation_name):
         )
 
         if result_generate3dv2 is None:
-            raise RuntimeError("No existen CPU disponibles, inténtalo más tarde")
+            raise ValueError("No existen CPU disponibles, inténtalo más tarde")
 
         if isinstance(result_generate3dv2, tuple):
             obj_glb_path = result_generate3dv2[0]  
@@ -59,8 +59,14 @@ def create_unico3d(user_uid, image_file, generation_name):
         doc_ref.set(prediction_result)
 
         return prediction_result
-    except RuntimeError as e:
-        raise RuntimeError(str(e))
+    except Exception as e:
+        error_message = str(e)
+        if "You have exceeded your GPU quota" in error_message:
+            raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
+        elif result_generate3dv2 is None:
+            raise ValueError("No existen CPU disponibles, inténtalo más tarde")
+        else:
+            raise ValueError(error_message)
     finally:
         if os.path.exists(unique_filename):
             os.remove(unique_filename)
