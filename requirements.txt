@@ -4,3 +4,4 @@ flask_cors
 google-cloud-firestore
 python-dotenv
 firebase-admin
+gunicorn
