@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from middleware.auth_middleware import verify_token_middleware
-from services import generation_service, text3d_service, textimg3d_service, unico3d_service
+from services import generation_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service
 
 bp = Blueprint('generation', __name__)
 
@@ -95,7 +95,50 @@ def predict_unico3d():
     except Exception as e:
         print(f"Error interno del servidor: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+
+@bp.route("/multiimagen3D", methods=["POST"])
+@verify_token_middleware
+def predict_multi_image_3d():
+    try:
+        # Obtener los archivos de imagen y el nombre de la generación del formulario
+        frontal_image = request.files.get("frontal")
+        lateral_image = request.files.get("lateral")
+        trasera_image = request.files.get("trasera")
+        generation_name = request.form.get("generationName")
+        user_uid = request.user["uid"]  # UID del usuario obtenido del middleware
+        
+        # Validar que se hayan proporcionado todas las imágenes
+        if not frontal_image or not lateral_image or not trasera_image:
+            raise ValueError("Por favor, cargue las tres imágenes (frontal, lateral y trasera).")
+        
+        # Validar que se haya proporcionado un nombre para la generación
+        if not generation_name:
+            raise ValueError("Por favor, ingrese un nombre para la generación.")
+        
+        # Llamar al servicio para crear la generación
+        prediction_multiimg3d_result = multiimg3d_service.create_multiimg3d(
+            user_uid=user_uid,
+            frontal_image=frontal_image,
+            lateral_image=lateral_image,
+            trasera_image=trasera_image,
+            generation_name=generation_name
+        )
+        
+        # Devolver el resultado como respuesta JSON
+        return jsonify(prediction_multiimg3d_result)
     
+    except ValueError as ve:
+        print(f"Error de valor: {ve}")
+        return jsonify({"error": str(ve)}), 400
+    
+    except KeyError as ke:
+        print(f"Clave faltante: {ke}")
+        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
+    
+    except Exception as e:
+        print(f"Error interno del servidor: {e}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
 def get_user_generations():

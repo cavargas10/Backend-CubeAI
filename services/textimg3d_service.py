@@ -1,121 +1,208 @@
 from config.firebase_config import db, bucket
-from gradio_client import Client, file
+from config.huggingface_config import create_hf_client
+from gradio_client import handle_file
 from dotenv import load_dotenv
+from huggingface_hub import login
 import datetime
-import random
 import os
 from utils.storage_utils import upload_to_storage
 
+# Configuración inicial
 load_dotenv()
 
+# Autenticación Hugging Face
+HF_TOKEN = os.getenv("HF_TOKEN")
+login(token=HF_TOKEN)
 client_textimg3d_url = os.getenv("CLIENT_TEXTOIMAGEN3D_URL")
-
-client = Client(client_textimg3d_url)
+client = create_hf_client(client_textimg3d_url)  # Serialización activada
 
 def textimg3d_generation_exists(user_uid, generation_name):
-    doc_ref = db.collection('predictions').document(user_uid).collection('TextImg3D').document(generation_name)
-    doc = doc_ref.get()
-    return doc.exists
+    """Verifica si una generación ya existe en Firestore"""
+    doc_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D').document(generation_name)
+    return doc_ref.get().exists
 
 def create_textimg3d(user_uid, generation_name, subject, style, additional_details):
-    
     if textimg3d_generation_exists(user_uid, generation_name):
         raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
+    
+    prompt_generation = f"{subject}, style {style}, {additional_details}, three quarter angle"
 
     try:
+        # Paso 0: Iniciar sesión
+        print("Iniciando sesión con la API...")
+        client.predict(api_name="/start_session")
+
+        # Paso 1: Generar la imagen a partir del texto
+        print(f"Generando imagen con prompt: {prompt_generation}")
         result_generate_image = client.predict(
-            subject=subject,
-            style=style,
-            color_scheme="Vibrant",
-            angle="Three-quarter",
-            lighting_type="Bright and Even",
-            additional_details=additional_details,
-            api_name="/generate_image"
-        )
-
-    except Exception as e:
-        raise ValueError(f"Error en la generación de imagen: {e}")
-
-    image_path = result_generate_image[0] if isinstance(result_generate_image, tuple) else result_generate_image
-
-    if not isinstance(image_path, str):
-        raise ValueError("Ruta de la imagen no es una cadena de texto válida.")
-
-    try:
-        processed_image = client.predict(
-            input_image=file(image_path),
-            api_name="/preprocess"
-        )
-
-        checked_image = client.predict(
-            processed_image=file(processed_image),
-            api_name="/check_image"
-        )
-
-        mv_result = client.predict(
-            input_image=file(processed_image),
-            api_name="/generate_mvs"
+            prompt=prompt_generation,
+            seed=42,
+            randomize_seed=True,
+            width=1024,
+            height=1024,
+            guidance_scale=3.5,
+            api_name="/generate_flux_image"
         )
         
-        mv_result_path = mv_result
-        final_result = client.predict(
-            api_name="/make3d"
+        # Validación: La respuesta no debe ser None ni de tipo incorrecto
+        if not result_generate_image or not isinstance(result_generate_image, str):
+            raise ValueError("Error al generar la imagen: respuesta inválida.")
+        
+        generated_image_path = result_generate_image
+        print(f"Imagen generada en: {generated_image_path}")
+
+        # Verificar que el archivo generado existe
+        if not os.path.exists(generated_image_path):
+            raise FileNotFoundError(f"El archivo generado {generated_image_path} no existe.")
+
+        # Paso 2: Obtener un seed aleatorio
+        print("Obteniendo seed aleatorio...")
+        result_get_seed = client.predict(
+            randomize_seed=True,
+            seed=0,
+            api_name="/get_seed"
         )
+
+        # Validar que el seed es un número entero
+        if not isinstance(result_get_seed, int):
+            raise ValueError(f"Seed inválido: {result_get_seed}")
+
+        seed_value = result_get_seed
+        print(f"Seed obtenido: {seed_value}")
+
+        # Paso 3: Preprocesar la imagen
+        print("Preprocesando imagen...")
+
+        result_preprocess = client.predict(
+            image=handle_file(generated_image_path),
+            api_name="/preprocess_image"
+        )
+        preprocess_image_path = result_preprocess
+        
+        # Validar que el resultado del preprocesamiento sea una cadena válida
+        if not isinstance(preprocess_image_path, str) or not preprocess_image_path:
+            raise ValueError("Error al preprocesar la imagen.")
+        
+        if not result_preprocess or not isinstance(result_preprocess, str):
+            raise ValueError("Error al preprocesar la imagen: respuesta inválida.")
+
+        # Verificar que el archivo preprocesado existe
+        if not os.path.exists(preprocess_image_path):
+            raise FileNotFoundError(f"El archivo preprocesado {preprocess_image_path} no existe.")
+
+        print(f"Imagen preprocesada en: {preprocess_image_path}")
+        
+        # Paso 4: Generar el modelo 3D
+        print("Generando modelo 3D...")
+        result_image_to_3d = client.predict(
+            image=handle_file(preprocess_image_path),
+            seed=seed_value,
+            ss_guidance_strength=7.5,
+            ss_sampling_steps=12,
+            slat_guidance_strength=3,
+            slat_sampling_steps=12,
+            api_name="/image_to_3d"
+        )
+
+        if not result_image_to_3d or not isinstance(result_image_to_3d, dict):
+            raise ValueError("Error al generar modelo 3D: respuesta inválida.")
+
+        generated_3d_asset = result_image_to_3d.get("video")
+
+        if not isinstance(generated_3d_asset, str) or not generated_3d_asset:
+            raise ValueError("Error: la generación del modelo 3D no devolvió un video válido.")
+
+        print(f"Modelo 3D generado en: {generated_3d_asset}")
+
+        # Verificar que el archivo generado existe
+        if not os.path.exists(generated_3d_asset):
+            raise FileNotFoundError(f"El archivo 3D {generated_3d_asset} no existe.")
+
+        # Paso 5: Extraer el archivo GLB
+        print("Extrayendo archivo GLB...")
+        result_extract_glb = client.predict(
+            mesh_simplify=0.95,
+            texture_size=1024,
+            api_name="/extract_glb"
+        )
+        extracted_glb_path = result_extract_glb[1]
+        
+        if not extracted_glb_path or not isinstance(extracted_glb_path, str):
+            raise ValueError("Error al extraer GLB: respuesta inválida.")
+
+        print(f"Archivo GLB extraído en: {extracted_glb_path}")
+
+        # Verificar que el archivo GLB existe
+        if not os.path.exists(extracted_glb_path):
+            raise FileNotFoundError(f"El archivo GLB {extracted_glb_path} no existe.")
+
+        # Finalizar sesión
+        print("Finalizar sesión con la API...")
+        client.predict(api_name="/end_session")
+        
+        # Paso 6: Subir archivos al almacenamiento
+        print("Subiendo archivos al almacenamiento...")
+        generation_folder = f'{user_uid}/TextoImagen3D/{generation_name}'
+        generated_image_url = upload_to_storage(generated_image_path, f'{generation_folder}/generated_image.png')
+        generated_3d_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/generated_3d.mp4')
+        glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+
+        # Paso 7: Guardar resultados en Firestore
+        print("Guardando resultados en Firestore...")
+        prediction_textimg3d_result = {
+            "generation_name": generation_name,
+            "prompt": prompt_generation,
+            "generated_image": generated_image_url,
+            "generated_3d": generated_3d_url,
+            "glb_model_t23d": glb_url,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "prediction_type": "Texto a Imagen a 3D"
+        }
+
+        doc_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D').document(generation_name)
+        doc_ref.set(prediction_textimg3d_result)
+        
+        print("Proceso completado con éxito.")
+        return prediction_textimg3d_result
+
+    except FileNotFoundError as e:
+        print(f"Archivo no encontrado: {e}")
+        raise ValueError(str(e))
+
+    except ValueError as e:
+        print(f"Error de valor: {e}")
+        raise ValueError(str(e))
 
     except Exception as e:
         error_message = str(e)
         if "You have exceeded your GPU quota" in error_message:
             raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
         elif "None" in error_message:
-            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
+            raise ValueError("No existe GPU disponibles, inténtalo más tarde.")
         else:
+            print(f"Error inesperado: {error_message}")
             raise ValueError(error_message)
-    make3d_obj_path, make3d_glb_path = final_result
-    generation_folder = f'{user_uid}/TextImg3D/{generation_name}'
-    
-    try:
-        image_path = upload_to_storage(result_generate_image, f'{generation_folder}/mv_image.png')
-        mv_image_url = upload_to_storage(mv_result_path, f'{generation_folder}/mv_image.png')
-        generate_image_url = upload_to_storage(result_generate_image, f'{generation_folder}/generate_image.png')
-        final_obj_url  = upload_to_storage(make3d_obj_path, f'{generation_folder}/make3d.obj')
-        final_glb_url  = upload_to_storage(make3d_glb_path, f'{generation_folder}/make3d.glb')
+
     finally:
-        if os.path.exists(mv_result_path):
-            os.remove(mv_result_path)
-        if os.path.exists(make3d_obj_path):
-            os.remove(make3d_obj_path)
-
-    prediction_textimg3d_result = {
-        "generation_name": generation_name,
-        "subject": subject,
-        "style": style,
-        "additional_details": additional_details,
-        "mv_image": mv_image_url,
-        "generate_image": generate_image_url,
-        "make3d": [final_obj_url, final_glb_url],
-        "timestamp": datetime.datetime.now().isoformat(),
-        "prediction_type": "Texto a Imagen a 3D"
-    }
-
-    doc_ref = db.collection('predictions').document(user_uid).collection('TextImg3D').document(generation_name)
-    doc_ref.set(prediction_textimg3d_result)
-
-    return prediction_textimg3d_result
+        # Eliminar archivos temporales solo si existen
+        for path in [generated_image_path, preprocess_image_path, generated_3d_asset, extracted_glb_path]:
+            if path and isinstance(path, str) and os.path.exists(path):
+                os.remove(path)
+                print(f"Archivo eliminado: {path}")
 
 def get_user_textimg3d_generations(user_uid):
-    generations_ref = db.collection('predictions').document(user_uid).collection('TextImg3D')
+    generations_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
 def delete_textimg3d_generation(user_uid, generation_name):
-    doc_ref = db.collection('predictions').document(user_uid).collection('TextImg3D').document(generation_name)
+    doc_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:
         return False
-    
-    generation_folder = f"{user_uid}/TextImg3D/{generation_name}"
+
+    generation_folder = f"{user_uid}/{generation_name}"
     blobs = bucket.list_blobs(prefix=generation_folder)
     for blob in blobs:
         blob.delete()
-
     doc_ref.delete()
     return True

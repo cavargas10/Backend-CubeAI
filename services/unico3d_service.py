@@ -26,14 +26,14 @@ def create_unico3d(user_uid, image_file, generation_name):
 
     try:
         result_generate3dv2 = client.predict(
-            preview_img=file(unique_filename),
-            input_processing=True,
-            seed=-1,
-            render_video=False,
-            do_refine=True,
-            expansion_weight=0.1,
-            init_type="std",
-            api_name="/generate3dv2"
+            file(unique_filename),
+            True,
+            -1,
+            False,
+            True,
+            0.1,
+            "std",
+            "/generate3dv2"
         )
 
         if isinstance(result_generate3dv2, tuple):
