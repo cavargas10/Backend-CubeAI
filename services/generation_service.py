@@ -55,13 +55,11 @@ def create_generation(user_uid, image_file, generation_name):
         # Paso 3: Generar el modelo 3D
         result_image_to_3d = client.predict(
             image=handle_file(preprocess_image_path),
-            multiimages=[],
             seed=seed_value,
             ss_guidance_strength=7.5,
             ss_sampling_steps=12,
             slat_guidance_strength=3,
             slat_sampling_steps=12,
-            multiimage_algo="stochastic",
             api_name="/image_to_3d"
         )
         generated_3d_asset = result_image_to_3d["video"]
@@ -83,7 +81,7 @@ def create_generation(user_uid, image_file, generation_name):
             raise FileNotFoundError(f"El archivo GLB {extracted_glb_path} no existe.")
         
         # Subir archivos al almacenamiento
-        generation_folder = f'{user_uid}/{generation_name}'
+        generation_folder = f'{user_uid}/Imagen3D/{generation_name}'
         preprocess_url = upload_to_storage(preprocess_image_path, f'{generation_folder}/preprocess.png')
         generated_3d_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/generated_3d.mp4')
         glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
@@ -125,7 +123,7 @@ def delete_generation(user_uid, generation_name):
     if not doc.exists:
         return False
     
-    generation_folder = f"{user_uid}/{generation_name}"
+    generation_folder = f"{user_uid}/Imagen3D/{generation_name}"
     blobs = bucket.list_blobs(prefix=generation_folder)
     for blob in blobs:
         blob.delete()

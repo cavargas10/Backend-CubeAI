@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from middleware.auth_middleware import verify_token_middleware
-from services import generation_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service
+from services import generation_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service, boceto3d_service
 
 bp = Blueprint('generation', __name__)
 
@@ -139,6 +139,47 @@ def predict_multi_image_3d():
         print(f"Error interno del servidor: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
 
+@bp.route("/boceto3D", methods=["POST"])
+@verify_token_middleware
+def predict_boceto_3d():
+    try:
+        # Obtener los datos del formulario
+        image_file = request.files.get("image")  # Archivo de imagen del boceto
+        generation_name = request.form.get("generationName")  # Nombre de la generación
+        description = request.form.get("description", "")  # Descripción opcional
+        user_uid = request.user["uid"]  # UID del usuario obtenido del middleware
+
+        # Validar que se haya proporcionado una imagen
+        if not image_file:
+            raise ValueError("Por favor, cargue una imagen del boceto.")
+
+        # Validar que se haya proporcionado un nombre para la generación
+        if not generation_name:
+            raise ValueError("Por favor, ingrese un nombre para la generación.")
+
+        # Llamar al servicio para procesar el boceto 3D
+        prediction_boceto3d_result = boceto3d_service.create_boceto3d(
+            user_uid=user_uid,
+            image_file=image_file,
+            generation_name=generation_name,
+            description=description
+        )
+
+        # Devolver el resultado como respuesta JSON
+        return jsonify(prediction_boceto3d_result)
+
+    except ValueError as ve:
+        print(f"Error de valor: {ve}")
+        return jsonify({"error": str(ve)}), 400
+
+    except KeyError as ke:
+        print(f"Clave faltante: {ke}")
+        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
+
+    except Exception as e:
+        print(f"Error interno del servidor: {e}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+    
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
 def get_user_generations():
@@ -148,11 +189,15 @@ def get_user_generations():
         text3d_generations = text3d_service.get_user_text3d_generations(user_uid)
         textimg3d_generations = textimg3d_service.get_user_textimg3d_generations(user_uid)
         unico3d_generations = unico3d_service.get_user_unico3d_generations(user_uid)
+        multiimg3d_generations = multiimg3d_service.get_user_multiimg3d_generations(user_uid)
+        boceto3d_generations = boceto3d_service.get_user_boceto3d_generations(user_uid)
         return jsonify({
             "imagen3D": generations,
             "texto3D": text3d_generations,
             "textimg3D": textimg3d_generations,
-            "unico3D": unico3d_generations
+            "unico3D": unico3d_generations,
+            "multiimg3D": multiimg3d_generations,
+            "boceto3D": boceto3d_generations,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -171,6 +216,10 @@ def delete_generation(generation_type, generation_name):
             success = textimg3d_service.delete_textimg3d_generation(user_uid, generation_name)
         elif generation_type == "Unico3D":
             success = unico3d_service.delete_unico3d_generation(user_uid, generation_name)
+        elif generation_type == "MultiImagen3D":
+            success = multiimg3d_service.delete_multiimg3d_generation(user_uid, generation_name)
+        elif generation_type == "Boceto3D":
+            success = boceto3d_service.delete_boceto3d_generation(user_uid, generation_name)
         else:
             return jsonify({"error": "Tipo de generación no válido"}), 400
         

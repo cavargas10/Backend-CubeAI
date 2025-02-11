@@ -25,7 +25,7 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
     if textimg3d_generation_exists(user_uid, generation_name):
         raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
     
-    prompt_generation = f"{subject}, style {style}, {additional_details}, three quarter angle"
+    prompt_generation = f"{subject}, {additional_details}, style {style}, three quarter angle"
 
     try:
         # Paso 0: Iniciar sesión
@@ -96,7 +96,7 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
         print("Generando modelo 3D...")
         result_image_to_3d = client.predict(
             image=handle_file(preprocess_image_path),
-            seed=seed_value,
+            seed=1472272503,
             ss_guidance_strength=7.5,
             ss_sampling_steps=12,
             slat_guidance_strength=3,
@@ -200,7 +200,7 @@ def delete_textimg3d_generation(user_uid, generation_name):
     if not doc.exists:
         return False
 
-    generation_folder = f"{user_uid}/{generation_name}"
+    generation_folder = f"{user_uid}/TextoImagen3D/{generation_name}"
     blobs = bucket.list_blobs(prefix=generation_folder)
     for blob in blobs:
         blob.delete()

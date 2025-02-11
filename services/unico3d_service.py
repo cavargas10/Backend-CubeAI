@@ -1,5 +1,7 @@
 from config.firebase_config import db, bucket
 from gradio_client import Client, file
+from config.huggingface_config import create_hf_client
+from huggingface_hub import login
 from dotenv import load_dotenv
 import datetime
 import uuid
@@ -7,10 +9,11 @@ import os
 from utils.storage_utils import upload_to_storage
 
 load_dotenv()
-
+# Autenticación Hugging Face
+HF_TOKEN = os.getenv("HF_TOKEN")
+login(token=HF_TOKEN)
 client_unico3d_url = os.getenv("CLIENT_UNICO3D_URL")
-
-client = Client(client_unico3d_url)
+client = create_hf_client(client_unico3d_url)  # Serialización activada
 
 def unico3d_generation_exists(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Unico3D').document(generation_name)
@@ -41,7 +44,7 @@ def create_unico3d(user_uid, image_file, generation_name):
         else:
             obj_glb_path = result_generate3dv2
 
-        generation_folder = f'{user_uid}/{generation_name}'
+        generation_folder = f'{user_uid}/Unico3D/{generation_name}'
 
         obj_glb_url = upload_to_storage(obj_glb_path, f'{generation_folder}/obj_glb.glb')
 
@@ -78,7 +81,7 @@ def delete_unico3d_generation(user_uid, generation_name):
     if not doc.exists:
         return False
     
-    generation_folder = f"{user_uid}/{generation_name}"
+    generation_folder = f"{user_uid}/Unico3D/{generation_name}"
     blobs = bucket.list_blobs(prefix=generation_folder)
     for blob in blobs:
         blob.delete()
