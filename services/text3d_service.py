@@ -40,14 +40,14 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         # Paso 1: Generación 3D con "/generation_all"
         result_generate = client.predict(
             caption=full_prompt,
-            image=None,
             steps=num_steps,
             guidance_scale=5.5,
             seed=seed,
             octree_resolution="256",
-            check_box_rembg=True,
             api_name="/generation_all"
         )
+        
+        from gradio_client import Client, file
 
         # Extrae el GLB de la TUPLA (índice 1)
         glb_model_path = result_generate[1]  # <-- Aquí está el cambio clave
