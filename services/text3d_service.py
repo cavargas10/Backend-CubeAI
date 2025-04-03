@@ -47,8 +47,8 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
             api_name="/generation_all"
         )
 
-        # Extrae el GLB de la TUPLA (índice 0)
-        glb_model_path = result_generate[0]  
+        # Extrae el GLB 
+        glb_model_path = result_generate
 
     except Exception as e:
         error_message = str(e)
