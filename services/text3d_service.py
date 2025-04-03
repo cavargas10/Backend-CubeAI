@@ -48,7 +48,7 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         )
 
         # Extrae el GLB 
-        glb_model_path = result_generate
+        glb_model_path = result_generate[1]
 
     except Exception as e:
         error_message = str(e)
