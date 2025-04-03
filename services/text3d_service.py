@@ -46,11 +46,9 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
             octree_resolution="256",
             api_name="/generation_all"
         )
-        
-        from gradio_client import Client, file
 
-        # Extrae el GLB de la TUPLA (índice 1)
-        glb_model_path = result_generate[1]  # <-- Aquí está el cambio clave
+        # Extrae el GLB de la TUPLA (índice 0)
+        glb_model_path = result_generate[0]  
 
     except Exception as e:
         error_message = str(e)
