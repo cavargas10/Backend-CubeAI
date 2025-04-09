@@ -47,18 +47,12 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
         if not preprocess_result:
             raise ValueError("Error en el preprocesamiento: respuesta vacía.")
 
-        preprocess_path_1, preprocess_path_2 = None, None
-        if isinstance(preprocess_result, list) and len(preprocess_result) >= 2:
-            preprocess_path_1, preprocess_path_2 = preprocess_result[:2]
-        elif isinstance(preprocess_result, dict):
-            preprocess_path_1 = preprocess_result.get("image")
-            preprocess_path_2 = preprocess_result.get("processed_image")
-
-        if not preprocess_path_1 or not preprocess_path_2:
+        processed_image_path = preprocess_result if isinstance(preprocess_result, str) else preprocess_result.get("image")
+        if not processed_image_path:
             raise ValueError("El preprocesamiento no devolvió imágenes válidas.")
 
-        temp_files.extend([preprocess_path_1, preprocess_path_2])
-        print(f"Imágenes preprocesadas")
+        temp_files.append(processed_image_path)
+        print(f"Imagen preprocesada")
 
         print(f"Obteniendo seed aleatorio...")
         result_get_seed = client.predict(randomize_seed=True, seed=0, api_name="/get_seed")
@@ -66,7 +60,7 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
 
         print(f"Generando modelo 3D...")
         result_image_to_3d = client.predict(
-            image=[handle_file(preprocess_path_1), handle_file(preprocess_path_2)],
+            image=handle_file(processed_image_path),  
             seed=seed_value,
             ss_guidance_strength=7.5,
             ss_sampling_steps=12,
@@ -110,8 +104,7 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
 
         print(f"Subiendo archivos al almacenamiento...")
         generation_folder = f'{user_uid}/Boceto3D/{generation_name}'
-        preprocess_url_1 = upload_to_storage(preprocess_path_1, f'{generation_folder}/preprocess_1.png')
-        preprocess_url_2 = upload_to_storage(preprocess_path_2, f'{generation_folder}/preprocess_2.png')
+        processed_url = upload_to_storage(processed_image_path, f'{generation_folder}/processed_image.png')
         generated_3d_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/generated_3d.mp4')
         glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
 
@@ -119,7 +112,7 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
         prediction_boceto3d_result = {
             "generation_name": generation_name,
             "description": description,
-            "preprocess_images": [preprocess_url_1, preprocess_url_2],
+            "processed_image": processed_url,
             "generated_3d": generated_3d_url,
             "glb_model_b3d": glb_url,
             "timestamp": datetime.datetime.now().isoformat(),
