@@ -21,6 +21,10 @@ def boceto3d_generation_exists(user_uid, generation_name):
     return doc_ref.get().exists
 
 def create_boceto3d(user_uid, image_file, generation_name, description=""):
+    
+    print("Iniciando sesión con la API...")
+    client.predict(api_name="/start_session")
+        
     if boceto3d_generation_exists(user_uid, generation_name):
         raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
     
@@ -87,20 +91,17 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
         )
         extracted_glb_path = result_extract_glb[1]
         
-        if not extracted_glb_path or not isinstance(extracted_glb_path, str):
-            raise ValueError("Error al extraer GLB: respuesta inválida.")
-        
         # Verificar que el archivo GLB existe
         if not os.path.exists(extracted_glb_path):
             raise FileNotFoundError(f"El archivo GLB {extracted_glb_path} no existe.")
+        
         print(f"Archivo GLB extraído en: {extracted_glb_path}")
+        if not extracted_glb_path or not isinstance(extracted_glb_path, str):
+            raise ValueError("Error al extraer GLB: respuesta inválida.")
         
         # Paso 5: Finalizar procesamiento
         print("Finalizar sesión con la API...")
         client.predict(api_name="/end_session")
-
-        temp_files.append(extracted_glb_path)
-        print(f"Archivo GLB extraído en: {extracted_glb_path}")
 
         print(f"Subiendo archivos al almacenamiento...")
         generation_folder = f'{user_uid}/Boceto3D/{generation_name}'
