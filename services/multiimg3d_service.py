@@ -18,7 +18,6 @@ client_multiimg3d_url = os.getenv("CLIENT_MULTI3D_URL")
 client = create_hf_client(client_multiimg3d_url)  
 
 def multiimg3d_generation_exists(user_uid, generation_name):
-    """Verifica si una generación ya existe en Firestore"""
     doc_ref = db.collection('predictions').document(user_uid).collection('MultiImagen3D').document(generation_name)
     return doc_ref.get().exists
 

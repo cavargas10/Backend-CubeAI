@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from middleware.auth_middleware import verify_token_middleware
-from services import generation_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service, boceto3d_service
+from services import img3d_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service, boceto3d_service
 
 bp = Blueprint('generation', __name__)
 
@@ -12,7 +12,7 @@ def predict_generation():
         generation_name = request.form.get("generationName")
         user_uid = request.user["uid"]
         
-        prediction_img3d_result = generation_service.create_generation(user_uid, image_file, generation_name)
+        prediction_img3d_result = img3d_service.create_generation(user_uid, image_file, generation_name)
         return jsonify(prediction_img3d_result)
     except ValueError as ve:
         print(f"Error de valor: {ve}")
@@ -185,7 +185,7 @@ def predict_boceto_3d():
 def get_user_generations():
     try:
         user_uid = request.user["uid"]
-        generations = generation_service.get_user_generations(user_uid)
+        generations = img3d_service.get_user_generations(user_uid)
         text3d_generations = text3d_service.get_user_text3d_generations(user_uid)
         textimg3d_generations = textimg3d_service.get_user_textimg3d_generations(user_uid)
         unico3d_generations = unico3d_service.get_user_unico3d_generations(user_uid)
@@ -209,7 +209,7 @@ def delete_generation(generation_type, generation_name):
         user_uid = request.user["uid"]
         
         if generation_type == "Imagen3D":
-            success = generation_service.delete_generation(user_uid, generation_name)
+            success = img3d_service.delete_generation(user_uid, generation_name)
         elif generation_type == "Texto3D":
             success = text3d_service.delete_text3d_generation(user_uid, generation_name)
         elif generation_type == "TextImg3D":

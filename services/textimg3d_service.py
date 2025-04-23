@@ -14,10 +14,9 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 login(token=HF_TOKEN)
 client_textimg3d_url = os.getenv("CLIENT_TEXTOIMAGEN3D_URL")
-client = create_hf_client(client_textimg3d_url)  # Serialización activada
+client = create_hf_client(client_textimg3d_url)  
 
 def textimg3d_generation_exists(user_uid, generation_name):
-    """Verifica si una generación ya existe en Firestore"""
     doc_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D').document(generation_name)
     return doc_ref.get().exists
 

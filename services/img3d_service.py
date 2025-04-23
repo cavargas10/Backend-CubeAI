@@ -14,16 +14,17 @@ load_dotenv()
 # Autenticación Hugging Face
 HF_TOKEN = os.getenv("HF_TOKEN")
 login(token=HF_TOKEN)
+
 client_imagen3d_url = os.getenv("CLIENT_IMAGEN3D_URL")
 client = create_hf_client(client_imagen3d_url)  
 
-def generation_exists(user_uid, generation_name):
-    """Verifica si una generación ya existe en Firestore"""
+def img3d_generation_exists(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Imagen3D').document(generation_name)
-    return doc_ref.get().exists
+    doc = doc_ref.get()
+    return doc.exists
 
 def create_generation(user_uid, image_file, generation_name):
-    if generation_exists(user_uid, generation_name):
+    if img3d_generation_exists(user_uid, generation_name):
         raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
     
     unique_filename = f"temp_image_{uuid.uuid4().hex}.png"
