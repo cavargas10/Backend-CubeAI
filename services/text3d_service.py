@@ -16,6 +16,7 @@ login(token=HF_TOKEN)
 client_texto3d_url = os.getenv("CLIENT_TEXTO3D_URL")
 client = create_hf_client(client_texto3d_url) 
 
+
 def text3d_generation_exists(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
     doc = doc_ref.get()
