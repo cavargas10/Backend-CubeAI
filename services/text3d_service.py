@@ -16,7 +16,6 @@ login(token=HF_TOKEN)
 client_texto3d_url = os.getenv("CLIENT_TEXTO3D_URL")
 client = create_hf_client(client_texto3d_url) 
 
-
 def text3d_generation_exists(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
     doc = doc_ref.get()
@@ -66,6 +65,10 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         if not os.path.exists(extracted_glb_path):
             raise FileNotFoundError(f"El archivo GLB {extracted_glb_path} no existe.")
         
+        # Finalizar sesión
+        print("Finalizar sesión con la API...")
+        client.predict(api_name="/end_session")
+        
         generation_folder = f'{user_uid}/Texto3D/{generation_name}'
         generated_video_url = upload_to_storage(generated_video, f'{generation_folder}/generated_video.mp4')
         glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
@@ -93,7 +96,7 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
             raise ValueError(error_message)
             
 def get_user_text3d_generations(user_uid):
-    generations_ref = db.collection('predictions').document(user_uid).collection('Imagen3D')
+    generations_ref = db.collection('predictions').document(user_uid).collection('Texto3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
 def delete_text3d_generation(user_uid, generation_name):
