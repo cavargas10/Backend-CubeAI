@@ -184,6 +184,28 @@ def predict_boceto_3d():
     except Exception as e:
         print(f"Error interno del servidor: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+
+@bp.route("/generation/preview", methods=["POST"])
+@verify_token_middleware
+def upload_generation_preview():
+    try:
+        user_uid = request.user["uid"]
+        preview_file = request.files.get("preview")
+        generation_name = request.form.get("generation_name")
+        prediction_type_api = request.form.get("prediction_type_api")
+
+        if not all([preview_file, generation_name, prediction_type_api]):
+            return jsonify({"error": "Faltan datos en la solicitud (preview, generation_name, prediction_type_api)"}), 400
+
+        if prediction_type_api in SERVICE_MAP:
+            service_module = SERVICE_MAP[prediction_type_api]
+            updated_doc = service_module.add_preview_image(user_uid, generation_name, preview_file)
+            return jsonify(updated_doc), 200
+        else:
+            return jsonify({"error": "Tipo de predicción no válido"}), 400
+    except Exception as e:
+        print(f"Error al subir la previsualización: {e}")
+        return jsonify({"error": "Error interno del servidor al subir la previsualización"}), 500
     
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware

@@ -112,7 +112,23 @@ def create_generation(user_uid, image_file, generation_name):
                     os.remove(file_path)
                 except OSError as e:
                     print(f"Error al eliminar el archivo temporal {file_path}: {e}")
-            
+
+def add_preview_image(user_uid, generation_name, preview_file):
+    doc_ref = db.collection('predictions').document(user_uid).collection('Imagen3D').document(generation_name)
+    doc = doc_ref.get()
+
+    if not doc.exists:
+        raise ValueError(f"No se encontró la generación '{generation_name}' para el usuario.")
+
+    generation_folder = f'{user_uid}/Imagen3D/{generation_name}'
+    preview_image_url = upload_to_storage(preview_file, f'{generation_folder}/preview_image.png')
+    update_data = {"previewImageUrl": preview_image_url}
+    doc_ref.update(update_data)
+    updated_doc_data = doc.to_dict()
+    updated_doc_data.update(update_data) 
+
+    return updated_doc_data
+
 def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Imagen3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
