@@ -9,11 +9,10 @@ import os
 from utils.storage_utils import upload_to_storage
 
 load_dotenv()
-# Autenticación Hugging Face
 HF_TOKEN = os.getenv("HF_TOKEN")
 login(token=HF_TOKEN)
 client_unico3d_url = os.getenv("CLIENT_UNICO3D_URL")
-client = create_hf_client(client_unico3d_url)  # Serialización activada
+client = create_hf_client(client_unico3d_url)  
 
 def unico3d_generation_exists(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Unico3D').document(generation_name)
@@ -26,6 +25,9 @@ def create_unico3d(user_uid, image_file, generation_name):
 
     unique_filename = f"temp_image_{uuid.uuid4().hex}.png"
     image_file.save(unique_filename)
+    
+    temp_files_to_clean = [unique_filename]
+    extracted_glb_path = None
 
     try:
         result_generate3dv2 = client.predict(
@@ -40,36 +42,44 @@ def create_unico3d(user_uid, image_file, generation_name):
         )
 
         if isinstance(result_generate3dv2, tuple):
-            obj_glb_path = result_generate3dv2[0]  
+            extracted_glb_path = result_generate3dv2[0]
         else:
-            obj_glb_path = result_generate3dv2
+            extracted_glb_path = result_generate3dv2
+        
+        if not extracted_glb_path or not os.path.exists(extracted_glb_path):
+             raise FileNotFoundError(f"El archivo GLB no se generó o no se encontró en la ruta: {extracted_glb_path}")
+        temp_files_to_clean.append(extracted_glb_path)
 
         generation_folder = f'{user_uid}/Unico3D/{generation_name}'
-
-        obj_glb_url = upload_to_storage(obj_glb_path, f'{generation_folder}/obj_glb.glb')
-
-        prediction_unico3d_result = {
+        glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+        
+        normalized_result = {
             "generation_name": generation_name,
-            "obj_glb": obj_glb_url,
-            "timestamp": datetime.datetime.now().isoformat(),
-            "prediction_type": "Unico a 3D"
+            "prediction_type": "Unico a 3D",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "modelUrl": glb_url,
+            "previewUrl": None, 
+            "downloads": [
+                {"format": "GLB", "url": glb_url},
+            ],
+            "raw_data": {} 
         }
 
         doc_ref = db.collection('predictions').document(user_uid).collection('Unico3D').document(generation_name)
-        doc_ref.set(prediction_unico3d_result)
+        doc_ref.set(normalized_result)
 
-        return prediction_unico3d_result
+        return normalized_result
+        
     except Exception as e:
-        error_message = str(e)
-        if "You have exceeded your GPU quota" in error_message:
-            raise ValueError("Has excedido el uso de GPU. Por favor, intenta más tarde.")
-        elif "None" in error_message:
-            raise ValueError("No existe GPU disponibles, inténtalo más tarde")
-        else:
-            raise ValueError(error_message)
+        raise
+
     finally:
-        if os.path.exists(unique_filename):
-            os.remove(unique_filename)
+        for file_path in temp_files_to_clean:
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError as e:
+                    print(f"Error al eliminar el archivo temporal {file_path}: {e}")
 
 def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Unico3D')
