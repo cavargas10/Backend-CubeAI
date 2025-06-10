@@ -4,6 +4,24 @@ from services import img3d_service, text3d_service, textimg3d_service, unico3d_s
 
 bp = Blueprint('generation', __name__)
 
+SERVICE_MAP = {
+    "Imagen3D": img3d_service,
+    "Texto3D": text3d_service,
+    "TextImg3D": textimg3d_service,
+    "Unico3D": unico3d_service,
+    "MultiImagen3D": multiimg3d_service,
+    "Boceto3D": boceto3d_service,
+}
+
+READABLE_TO_API_TYPE_MAP = {
+    "Imagen a 3D": "Imagen3D",
+    "Texto a 3D": "Texto3D",
+    "Texto a Imagen a 3D": "TextImg3D",
+    "Unico a 3D": "Unico3D",
+    "Multi Imagen a 3D": "MultiImagen3D",
+    "Boceto a 3D": "Boceto3D",
+}
+
 @bp.route("/imagen3D", methods=["POST"])
 @verify_token_middleware
 def predict_generation():
@@ -167,69 +185,48 @@ def predict_boceto_3d():
         print(f"Error interno del servidor: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
     
-service_map = {
-    "Imagen3D": img3d_service.get_user_generations,
-    "Texto3D": text3d_service.get_user_text3d_generations,
-    "TextImg3D": textimg3d_service.get_user_textimg3d_generations,
-    "Unico3D": unico3d_service.get_user_unico3d_generations,
-    "MultiImagen3D": multiimg3d_service.get_user_multiimg3d_generations,
-    "Boceto3D": boceto3d_service.get_user_boceto3d_generations,
-}
-
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
 def get_user_generations():
     try:
         user_uid = request.user["uid"]
-        generation_type = request.args.get('type')
+        generation_type_api = request.args.get('type') 
 
-        if generation_type:
-            if generation_type in service_map:
-                get_generations_func = service_map[generation_type]
-                generations = get_generations_func(user_uid)
-                return jsonify(generations), 200
-            else:
-                return jsonify({"error": "Tipo de generación no válido"}), 400
+        if generation_type_api in SERVICE_MAP:
+            service_module = SERVICE_MAP[generation_type_api]
+            generations = service_module.get_generations(user_uid)
+            return jsonify(generations), 200
         else:
-            all_generations = {
-                "imagen3D": service_map["Imagen3D"](user_uid),
-                "texto3D": service_map["Texto3D"](user_uid),
-                "textimg3D": service_map["TextImg3D"](user_uid),
-                "unico3D": service_map["Unico3D"](user_uid),
-                "multiimg3D": service_map["MultiImagen3D"](user_uid),
-                "boceto3D": service_map["Boceto3D"](user_uid),
-            }
-            return jsonify(all_generations), 200
-
+            return jsonify({"error": "Tipo de generación no válido"}), 400
     except Exception as e:
         print(f"Error al obtener generaciones: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
 
-@bp.route("/generation/<generation_type>/<generation_name>", methods=["DELETE"])
+@bp.route("/generation", methods=["DELETE"])
 @verify_token_middleware
-def delete_generation(generation_type, generation_name):
+def delete_generic_generation():
     try:
         user_uid = request.user["uid"]
+        data = request.get_json()
         
-        if generation_type == "Imagen3D":
-            success = img3d_service.delete_generation(user_uid, generation_name)
-        elif generation_type == "Texto3D":
-            success = text3d_service.delete_text3d_generation(user_uid, generation_name)
-        elif generation_type == "TextImg3D":
-            success = textimg3d_service.delete_textimg3d_generation(user_uid, generation_name)
-        elif generation_type == "Unico3D":
-            success = unico3d_service.delete_unico3d_generation(user_uid, generation_name)
-        elif generation_type == "MultiImagen3D":
-            success = multiimg3d_service.delete_multiimg3d_generation(user_uid, generation_name)
-        elif generation_type == "Boceto3D":
-            success = boceto3d_service.delete_boceto3d_generation(user_uid, generation_name)
+        generation_name = data.get("generation_name")
+        prediction_type_readable = data.get("prediction_type") 
+
+        if not generation_name or not prediction_type_readable:
+            return jsonify({"error": "Faltan datos en la solicitud"}), 400
+
+        generation_type_api = READABLE_TO_API_TYPE_MAP.get(prediction_type_readable)
+
+        if generation_type_api and generation_type_api in SERVICE_MAP:
+            service_module = SERVICE_MAP[generation_type_api]
+            success = service_module.delete_generation(user_uid, generation_name)
+            if success:
+                return jsonify({"success": True}), 200
+            else:
+                return jsonify({"error": "Generación no encontrada"}), 404
         else:
-            return jsonify({"error": "Tipo de generación no válido"}), 400
-        
-        if success:
-            return jsonify({"success": True}), 200
-        else:
-            return jsonify({"error": "Generación no encontrada"}), 404
+            return jsonify({"error": f"Tipo de generación no válido: {prediction_type_readable}"}), 400
+            
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error al eliminar generación: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500

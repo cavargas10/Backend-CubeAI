@@ -114,7 +114,7 @@ def create_generation(user_uid, image_file, generation_name):
         if os.path.exists(unique_filename):
             os.remove(unique_filename)
             
-def get_user_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Imagen3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 

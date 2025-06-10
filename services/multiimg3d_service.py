@@ -165,11 +165,11 @@ def create_multiimg3d(user_uid, frontal_image, lateral_image, trasera_image, gen
             if os.path.exists(filename):
                 os.remove(filename)
             
-def get_user_multiimg3d_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('MultiImagen3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
-def delete_multiimg3d_generation(user_uid, generation_name):
+def delete_generation(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('MultiImagen3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:

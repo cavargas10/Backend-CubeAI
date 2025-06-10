@@ -71,11 +71,11 @@ def create_unico3d(user_uid, image_file, generation_name):
         if os.path.exists(unique_filename):
             os.remove(unique_filename)
 
-def get_user_unico3d_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Unico3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
-def delete_unico3d_generation(user_uid, generation_name):
+def delete_generation(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Unico3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:

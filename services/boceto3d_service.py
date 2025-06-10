@@ -140,11 +140,11 @@ def create_boceto3d(user_uid, image_file, generation_name, description=""):
                     print(f"No se pudo eliminar {file}: {str(e)}")
         print(f"Archivos temporales eliminados.")
 
-def get_user_boceto3d_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Boceto3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
-def delete_boceto3d_generation(user_uid, generation_name):
+def delete_generation(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Boceto3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:

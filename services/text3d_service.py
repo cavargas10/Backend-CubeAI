@@ -95,11 +95,11 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         else:
             raise ValueError(error_message)
             
-def get_user_text3d_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('Texto3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
-def delete_text3d_generation(user_uid, generation_name):
+def delete_generation(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:

@@ -189,11 +189,11 @@ def create_textimg3d(user_uid, generation_name, subject, style, additional_detai
                 os.remove(path)
                 print(f"Archivo eliminado: {path}")
 
-def get_user_textimg3d_generations(user_uid):
+def get_generations(user_uid):
     generations_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D')
     return [gen.to_dict() for gen in generations_ref.stream()]
 
-def delete_textimg3d_generation(user_uid, generation_name):
+def delete_generation(user_uid, generation_name):
     doc_ref = db.collection('predictions').document(user_uid).collection('TextoImagen3D').document(generation_name)
     doc = doc_ref.get()
     if not doc.exists:
