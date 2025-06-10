@@ -100,22 +100,18 @@ def predict_unico3d():
 @verify_token_middleware
 def predict_multi_image_3d():
     try:
-        # Obtener los archivos de imagen y el nombre de la generación del formulario
         frontal_image = request.files.get("frontal")
         lateral_image = request.files.get("lateral")
         trasera_image = request.files.get("trasera")
         generation_name = request.form.get("generationName")
-        user_uid = request.user["uid"]  # UID del usuario obtenido del middleware
+        user_uid = request.user["uid"]  
         
-        # Validar que se hayan proporcionado todas las imágenes
         if not frontal_image or not lateral_image or not trasera_image:
             raise ValueError("Por favor, cargue las tres imágenes (frontal, lateral y trasera).")
-        
-        # Validar que se haya proporcionado un nombre para la generación
+
         if not generation_name:
             raise ValueError("Por favor, ingrese un nombre para la generación.")
-        
-        # Llamar al servicio para crear la generación
+
         prediction_multiimg3d_result = multiimg3d_service.create_multiimg3d(
             user_uid=user_uid,
             frontal_image=frontal_image,
@@ -123,8 +119,6 @@ def predict_multi_image_3d():
             trasera_image=trasera_image,
             generation_name=generation_name
         )
-        
-        # Devolver el resultado como respuesta JSON
         return jsonify(prediction_multiimg3d_result)
     
     except ValueError as ve:
@@ -143,21 +137,15 @@ def predict_multi_image_3d():
 @verify_token_middleware
 def predict_boceto_3d():
     try:
-        # Obtener los datos del formulario
-        image_file = request.files.get("image")  # Archivo de imagen del boceto
-        generation_name = request.form.get("generationName")  # Nombre de la generación
-        description = request.form.get("description", "")  # Descripción opcional
-        user_uid = request.user["uid"]  # UID del usuario obtenido del middleware
+        image_file = request.files.get("image")  
+        generation_name = request.form.get("generationName")  
+        description = request.form.get("description", "")  
+        user_uid = request.user["uid"]  
 
-        # Validar que se haya proporcionado una imagen
         if not image_file:
             raise ValueError("Por favor, cargue una imagen del boceto.")
-
-        # Validar que se haya proporcionado un nombre para la generación
         if not generation_name:
             raise ValueError("Por favor, ingrese un nombre para la generación.")
-
-        # Llamar al servicio para procesar el boceto 3D
         prediction_boceto3d_result = boceto3d_service.create_boceto3d(
             user_uid=user_uid,
             image_file=image_file,
@@ -165,7 +153,6 @@ def predict_boceto_3d():
             description=description
         )
 
-        # Devolver el resultado como respuesta JSON
         return jsonify(prediction_boceto3d_result)
 
     except ValueError as ve:
@@ -180,27 +167,43 @@ def predict_boceto_3d():
         print(f"Error interno del servidor: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
     
+service_map = {
+    "Imagen3D": img3d_service.get_user_generations,
+    "Texto3D": text3d_service.get_user_text3d_generations,
+    "TextImg3D": textimg3d_service.get_user_textimg3d_generations,
+    "Unico3D": unico3d_service.get_user_unico3d_generations,
+    "MultiImagen3D": multiimg3d_service.get_user_multiimg3d_generations,
+    "Boceto3D": boceto3d_service.get_user_boceto3d_generations,
+}
+
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
 def get_user_generations():
     try:
         user_uid = request.user["uid"]
-        generations = img3d_service.get_user_generations(user_uid)
-        text3d_generations = text3d_service.get_user_text3d_generations(user_uid)
-        textimg3d_generations = textimg3d_service.get_user_textimg3d_generations(user_uid)
-        unico3d_generations = unico3d_service.get_user_unico3d_generations(user_uid)
-        multiimg3d_generations = multiimg3d_service.get_user_multiimg3d_generations(user_uid)
-        boceto3d_generations = boceto3d_service.get_user_boceto3d_generations(user_uid)
-        return jsonify({
-            "imagen3D": generations,
-            "texto3D": text3d_generations,
-            "textimg3D": textimg3d_generations,
-            "unico3D": unico3d_generations,
-            "multiimg3D": multiimg3d_generations,
-            "boceto3D": boceto3d_generations,
-        })
+        generation_type = request.args.get('type')
+
+        if generation_type:
+            if generation_type in service_map:
+                get_generations_func = service_map[generation_type]
+                generations = get_generations_func(user_uid)
+                return jsonify(generations), 200
+            else:
+                return jsonify({"error": "Tipo de generación no válido"}), 400
+        else:
+            all_generations = {
+                "imagen3D": service_map["Imagen3D"](user_uid),
+                "texto3D": service_map["Texto3D"](user_uid),
+                "textimg3D": service_map["TextImg3D"](user_uid),
+                "unico3D": service_map["Unico3D"](user_uid),
+                "multiimg3D": service_map["MultiImagen3D"](user_uid),
+                "boceto3D": service_map["Boceto3D"](user_uid),
+            }
+            return jsonify(all_generations), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Error al obtener generaciones: {e}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
 
 @bp.route("/generation/<generation_type>/<generation_name>", methods=["DELETE"])
 @verify_token_middleware
