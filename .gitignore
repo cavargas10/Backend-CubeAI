@@ -3,6 +3,7 @@ venv/
 env/
 ENV/
 .venv/
+tree.txt
 
 # Ignorar configuraciones específicas del entorno
 *.env
