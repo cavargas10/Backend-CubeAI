@@ -14,28 +14,10 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 login(token=HF_TOKEN)
 
 client_texto3d_url = os.getenv("CLIENT_TEXTO3D_URL")
-client = create_hf_client(client_texto3d_url) 
+client = create_hf_client(client_texto3d_url)
 
 def text3d_generation_exists(user_uid, generation_name):
-    doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
-    doc = doc_ref.get()
-    return doc.exists
-
-import datetime
-import os
-from config.firebase_config import db
-from config.huggingface_config import create_hf_client
-from dotenv import load_dotenv
-from huggingface_hub import login
-from utils.storage_utils import upload_to_storage
-
-load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
-login(token=HF_TOKEN)
-client_texto3d_url = os.getenv("CLIENT_TEXTO3D_URL")
-client = create_hf_client(client_texto3d_url) 
-
-def text3d_generation_exists(user_uid, generation_name):
+    """Verifica si una generación ya existe en Firestore para evitar duplicados."""
     doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
     doc = doc_ref.get()
     return doc.exists
@@ -43,9 +25,9 @@ def text3d_generation_exists(user_uid, generation_name):
 def create_text3d(user_uid, generation_name, user_prompt, selected_style):
     if text3d_generation_exists(user_uid, generation_name):
         raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
-    
+
     full_prompt = f"A {selected_style} 3D render of {user_prompt}. Style: {selected_style}. Emphasize essential features and textures with vibrant colors."
-    
+
     temp_files_to_clean = []
 
     try:
@@ -55,11 +37,11 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         if not isinstance(result_get_seed, int):
             raise ValueError(f"Seed inválido: {result_get_seed}")
         seed_value = result_get_seed
-        
+
         result_text_to_3d = client.predict(
             prompt=full_prompt,
             seed=seed_value,
-            ss_guidance_strength=7.5,   
+            ss_guidance_strength=7.5,
             ss_sampling_steps=25,
             slat_guidance_strength=7.5,
             slat_sampling_steps=25,
@@ -67,7 +49,7 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         )
         if not isinstance(result_text_to_3d, dict) or "video" not in result_text_to_3d:
             raise ValueError("Error al generar modelo 3D: respuesta de la API inválida.")
-        
+
         generated_video_path = result_text_to_3d["video"]
         if not os.path.exists(generated_video_path):
             raise FileNotFoundError(f"El archivo de video generado {generated_video_path} no existe.")
@@ -82,9 +64,9 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
         if not os.path.exists(extracted_glb_path):
             raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
         temp_files_to_clean.append(extracted_glb_path)
-        
+
         client.predict(api_name="/end_session")
-        
+
         generation_folder = f'{user_uid}/Texto3D/{generation_name}'
         glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
         preview_video_url = upload_to_storage(generated_video_path, f'{generation_folder}/preview.mp4')
@@ -104,15 +86,15 @@ def create_text3d(user_uid, generation_name, user_prompt, selected_style):
                 "full_prompt_sent_to_api": full_prompt,
             }
         }
-        
+
         doc_ref = db.collection('predictions').document(user_uid).collection('Texto3D').document(generation_name)
         doc_ref.set(normalized_result)
-        
+
         return normalized_result
-    
+
     except Exception as e:
         raise
-            
+
     finally:
         for file_path in temp_files_to_clean:
             if file_path and os.path.exists(file_path):
@@ -133,7 +115,7 @@ def add_preview_image(user_uid, generation_name, preview_file):
     update_data = {"previewImageUrl": preview_image_url}
     doc_ref.update(update_data)
     updated_doc_data = doc.to_dict()
-    updated_doc_data.update(update_data) 
+    updated_doc_data.update(update_data)
 
     return updated_doc_data
 
@@ -146,7 +128,7 @@ def delete_generation(user_uid, generation_name):
     doc = doc_ref.get()
     if not doc.exists:
         return False
-    
+
     generation_folder = f"{user_uid}/Texto3D/{generation_name}"
     blobs = bucket.list_blobs(prefix=generation_folder)
     for blob in blobs:
