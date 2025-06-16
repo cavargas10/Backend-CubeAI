@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from middleware.auth_middleware import verify_token_middleware
 from services import img3d_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service, boceto3d_service
 
@@ -29,18 +29,15 @@ def predict_generation():
         image_file = request.files.get("image")
         generation_name = request.form.get("generationName")
         user_uid = request.user["uid"]
-        
+
         prediction_img3d_result = img3d_service.create_generation(user_uid, image_file, generation_name)
         return jsonify(prediction_img3d_result)
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /imagen3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error inesperado en /imagen3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/texto3D", methods=["POST"])
 @verify_token_middleware
@@ -57,14 +54,11 @@ def create_text3d():
         prediction_text3d_result = text3d_service.create_text3d(user_uid, generation_name, user_prompt, selected_style)
         return jsonify(prediction_text3d_result)
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /texto3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error inesperado en /texto3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/textimg3D", methods=["POST"])
 @verify_token_middleware
@@ -82,15 +76,12 @@ def create_textimg3d():
         prediction_textimg3d_result = textimg3d_service.create_textimg3d(user_uid, generation_name, subject, style, additional_details)
         return jsonify(prediction_textimg3d_result)
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /textimg3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
-    
+        current_app.logger.error(f"Error inesperado en /textimg3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 @bp.route("/unico3D", methods=["POST"])
 @verify_token_middleware
 def predict_unico3d():
@@ -98,21 +89,18 @@ def predict_unico3d():
         user_uid = request.user["uid"]
         image_file = request.files.get("image")
         generation_name = request.form.get("generationName")
-        
+
         if not image_file or not generation_name:
             return jsonify({"error": "Faltan campos requeridos: imagen y/o nombre de generación"}), 400
-        
+
         prediction_unico3d_result = unico3d_service.create_unico3d(user_uid, image_file, generation_name)
         return jsonify(prediction_unico3d_result)
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /unico3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error inesperado en /unico3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/multiimagen3D", methods=["POST"])
 @verify_token_middleware
@@ -122,8 +110,8 @@ def predict_multi_image_3d():
         lateral_image = request.files.get("lateral")
         trasera_image = request.files.get("trasera")
         generation_name = request.form.get("generationName")
-        user_uid = request.user["uid"]  
-        
+        user_uid = request.user["uid"]
+
         if not frontal_image or not lateral_image or not trasera_image:
             raise ValueError("Por favor, cargue las tres imágenes (frontal, lateral y trasera).")
 
@@ -138,52 +126,40 @@ def predict_multi_image_3d():
             generation_name=generation_name
         )
         return jsonify(prediction_multiimg3d_result)
-    
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /multiimagen3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-    
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
-    
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error inesperado en /multiimagen3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/boceto3D", methods=["POST"])
 @verify_token_middleware
 def predict_boceto_3d():
     try:
-        image_file = request.files.get("image")  
-        generation_name = request.form.get("generationName")  
-        description = request.form.get("description", "")  
-        user_uid = request.user["uid"]  
+        image_file = request.files.get("image")
+        generation_name = request.form.get("generationName")
+        description = request.form.get("description", "")
+        user_uid = request.user["uid"]
 
         if not image_file:
             raise ValueError("Por favor, cargue una imagen del boceto.")
         if not generation_name:
             raise ValueError("Por favor, ingrese un nombre para la generación.")
+            
         prediction_boceto3d_result = boceto3d_service.create_boceto3d(
             user_uid=user_uid,
             image_file=image_file,
             generation_name=generation_name,
             description=description
         )
-
         return jsonify(prediction_boceto3d_result)
-
     except ValueError as ve:
-        print(f"Error de valor: {ve}")
+        current_app.logger.warning(f"Error de valor en /boceto3D: {ve}")
         return jsonify({"error": str(ve)}), 400
-
-    except KeyError as ke:
-        print(f"Clave faltante: {ke}")
-        return jsonify({"error": f"Clave faltante: {str(ke)}"}), 400
-
     except Exception as e:
-        print(f"Error interno del servidor: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error inesperado en /boceto3D: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/generation/preview", methods=["POST"])
 @verify_token_middleware
@@ -195,7 +171,7 @@ def upload_generation_preview():
         prediction_type_api = request.form.get("prediction_type_api")
 
         if not all([preview_file, generation_name, prediction_type_api]):
-            return jsonify({"error": "Faltan datos en la solicitud (preview, generation_name, prediction_type_api)"}), 400
+            return jsonify({"error": "Faltan datos en la solicitud"}), 400
 
         if prediction_type_api in SERVICE_MAP:
             service_module = SERVICE_MAP[prediction_type_api]
@@ -204,15 +180,15 @@ def upload_generation_preview():
         else:
             return jsonify({"error": "Tipo de predicción no válido"}), 400
     except Exception as e:
-        print(f"Error al subir la previsualización: {e}")
+        current_app.logger.error(f"Error al subir la previsualización: {e}", exc_info=True)
         return jsonify({"error": "Error interno del servidor al subir la previsualización"}), 500
-    
+
 @bp.route("/generations", methods=["GET"])
 @verify_token_middleware
 def get_user_generations():
     try:
         user_uid = request.user["uid"]
-        generation_type_api = request.args.get('type') 
+        generation_type_api = request.args.get('type')
 
         if generation_type_api in SERVICE_MAP:
             service_module = SERVICE_MAP[generation_type_api]
@@ -221,8 +197,8 @@ def get_user_generations():
         else:
             return jsonify({"error": "Tipo de generación no válido"}), 400
     except Exception as e:
-        print(f"Error al obtener generaciones: {e}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+        current_app.logger.error(f"Error al obtener generaciones: {e}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/generation", methods=["DELETE"])
 @verify_token_middleware
@@ -230,9 +206,9 @@ def delete_generic_generation():
     try:
         user_uid = request.user["uid"]
         data = request.get_json()
-        
+
         generation_name = data.get("generation_name")
-        prediction_type_readable = data.get("prediction_type") 
+        prediction_type_readable = data.get("prediction_type")
 
         if not generation_name or not prediction_type_readable:
             return jsonify({"error": "Faltan datos en la solicitud"}), 400
@@ -248,7 +224,6 @@ def delete_generic_generation():
                 return jsonify({"error": "Generación no encontrada"}), 404
         else:
             return jsonify({"error": f"Tipo de generación no válido: {prediction_type_readable}"}), 400
-            
     except Exception as e:
-        print(f"Error al eliminar generación: {e}")
+        current_app.logger.error(f"Error al eliminar generación: {e}", exc_info=True)
         return jsonify({"error": "Error interno del servidor"}), 500

@@ -17,7 +17,8 @@ def register_user():
         user_service.register_user(user_data)
         return jsonify({"success": True}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error en /register_user: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/user_data", methods=["GET"])
 @verify_token_middleware
@@ -30,7 +31,8 @@ def get_user_data():
         else:
             return jsonify({"error": "Usuario no encontrado"}), 404
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error en /user_data: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/update_name", methods=["POST"])
 @verify_token_middleware
@@ -43,7 +45,7 @@ def update_name():
         updated_user_data = user_service.update_user_name(user_uid, new_name)
         return jsonify(updated_user_data), 200
     except Exception as e:
-        current_app.logger.error(f"Error en update_name: {str(e)}")
+        current_app.logger.error(f"Error en /update_name: {str(e)}", exc_info=True)
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/update_profile_picture", methods=["POST"])
@@ -60,7 +62,7 @@ def update_profile_picture():
             profile_picture_url = user_service.update_profile_picture(user_uid, file)
             return jsonify({"profile_picture": profile_picture_url}), 200
     except Exception as e:
-        current_app.logger.error(f"Error en update_profile_picture: {str(e)}")
+        current_app.logger.error(f"Error en /update_profile_picture: {str(e)}", exc_info=True)
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @bp.route("/delete_user", methods=["DELETE"])
@@ -71,4 +73,5 @@ def delete_user():
         user_service.delete_user(user_uid)
         return jsonify({"success": True}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error en /delete_user: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error interno del servidor"}), 500
