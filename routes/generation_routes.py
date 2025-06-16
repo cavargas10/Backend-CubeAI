@@ -1,6 +1,11 @@
 from flask import Blueprint, jsonify, request, current_app
 from middleware.auth_middleware import verify_token_middleware
-from services import img3d_service, text3d_service, textimg3d_service, unico3d_service, multiimg3d_service, boceto3d_service
+from services.img3d_service import img3d_service
+from services.text3d_service import text3d_service
+from services.textimg3d_service import textimg3d_service
+from services.unico3d_service import unico3d_service
+from services.multiimg3d_service import multiimg3d_service
+from services.boceto3d_service import boceto3d_service
 
 bp = Blueprint('generation', __name__)
 
@@ -29,7 +34,6 @@ def predict_generation():
         image_file = request.files.get("image")
         generation_name = request.form.get("generationName")
         user_uid = request.user["uid"]
-
         prediction_img3d_result = img3d_service.create_generation(user_uid, image_file, generation_name)
         return jsonify(prediction_img3d_result)
     except ValueError as ve:
@@ -146,7 +150,7 @@ def predict_boceto_3d():
             raise ValueError("Por favor, cargue una imagen del boceto.")
         if not generation_name:
             raise ValueError("Por favor, ingrese un nombre para la generación.")
-            
+
         prediction_boceto3d_result = boceto3d_service.create_boceto3d(
             user_uid=user_uid,
             image_file=image_file,
@@ -174,8 +178,8 @@ def upload_generation_preview():
             return jsonify({"error": "Faltan datos en la solicitud"}), 400
 
         if prediction_type_api in SERVICE_MAP:
-            service_module = SERVICE_MAP[prediction_type_api]
-            updated_doc = service_module.add_preview_image(user_uid, generation_name, preview_file)
+            service_instance = SERVICE_MAP[prediction_type_api]
+            updated_doc = service_instance.add_preview_image(user_uid, generation_name, preview_file)
             return jsonify(updated_doc), 200
         else:
             return jsonify({"error": "Tipo de predicción no válido"}), 400
@@ -191,8 +195,8 @@ def get_user_generations():
         generation_type_api = request.args.get('type')
 
         if generation_type_api in SERVICE_MAP:
-            service_module = SERVICE_MAP[generation_type_api]
-            generations = service_module.get_generations(user_uid)
+            service_instance = SERVICE_MAP[generation_type_api]
+            generations = service_instance.get_generations(user_uid)
             return jsonify(generations), 200
         else:
             return jsonify({"error": "Tipo de generación no válido"}), 400
@@ -216,8 +220,8 @@ def delete_generic_generation():
         generation_type_api = READABLE_TO_API_TYPE_MAP.get(prediction_type_readable)
 
         if generation_type_api and generation_type_api in SERVICE_MAP:
-            service_module = SERVICE_MAP[generation_type_api]
-            success = service_module.delete_generation(user_uid, generation_name)
+            service_instance = SERVICE_MAP[generation_type_api]
+            success = service_instance.delete_generation(user_uid, generation_name)
             if success:
                 return jsonify({"success": True}), 200
             else:
