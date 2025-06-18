@@ -7,6 +7,9 @@ from services.unico3d_service import unico3d_service
 from services.multiimg3d_service import multiimg3d_service
 from services.boceto3d_service import boceto3d_service
 
+from celery_app import celery # Import Celery app
+from celery.result import AsyncResult # Import AsyncResult
+
 # Import existing and new Celery tasks
 from tasks import run_text3d_generation
 from tasks import run_img3d_generation, run_textimg3d_generation, run_unico3d_generation, run_multiimg3d_generation, run_boceto3d_generation
@@ -248,6 +251,39 @@ def predict_boceto_3d():
     except Exception as e:
         current_app.logger.error(f"Error inesperado en /boceto3D: {e}", exc_info=True)
         return jsonify({"error": "Error interno del servidor"}), 500
+
+@bp.route("/generation_status/<task_id>", methods=["GET"])
+def get_generation_status(task_id):
+    task_result = AsyncResult(task_id, app=celery)
+
+    if task_result.state == 'PENDING':
+        response = {
+            'status': 'PENDING',
+            'message': 'Task is waiting to be processed.'
+        }
+    elif task_result.state == 'STARTED':
+        response = {
+            'status': 'IN_PROGRESS',
+            'message': 'Task is currently being processed.'
+        }
+    elif task_result.state == 'SUCCESS':
+        response = {
+            'status': 'SUCCESS',
+            'result': task_result.result # or task_result.get()
+        }
+    elif task_result.state == 'FAILURE':
+        response = {
+            'status': 'FAILURE',
+            'message': str(task_result.info),  # .info contains the exception
+            'traceback': task_result.traceback # Optionally include traceback
+        }
+    else:
+        # For unknown states or if task_id is not found (though AsyncResult doesn't directly throw an error for unknown ID, state might be PENDING or a custom state)
+        response = {
+            'status': 'UNKNOWN',
+            'message': f'Task state is {task_result.state}. Or task ID not found.'
+        }
+    return jsonify(response)
 
 @bp.route("/generation/preview", methods=["POST"])
 @verify_token_middleware
