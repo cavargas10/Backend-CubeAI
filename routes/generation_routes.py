@@ -7,6 +7,8 @@ from services.unico3d_service import unico3d_service
 from services.multiimg3d_service import multiimg3d_service
 from services.boceto3d_service import boceto3d_service
 
+from tasks import run_text3d_generation
+
 bp = Blueprint('generation', __name__)
 
 SERVICE_MAP = {
@@ -43,6 +45,7 @@ def predict_generation():
         current_app.logger.error(f"Error inesperado en /imagen3D: {e}", exc_info=True)
         return jsonify({"error": "Error interno del servidor"}), 500
 
+# VERSIÓN NUEVA (ASÍNCRONA)
 @bp.route("/texto3D", methods=["POST"])
 @verify_token_middleware
 def create_text3d():
@@ -55,9 +58,28 @@ def create_text3d():
         if not all([generation_name, user_prompt, selected_style]):
             return jsonify({"error": "Faltan campos requeridos"}), 400
 
-        prediction_text3d_result = text3d_service.create_text3d(user_uid, generation_name, user_prompt, selected_style)
-        return jsonify(prediction_text3d_result)
+        # ----> INICIO DEL CAMBIO <----
+
+        # 1. En lugar de ejecutar la función directamente, la llamamos con .delay()
+        # .delay() le pasa la tarea a Celery y devuelve el control inmediatamente.
+        task = run_text3d_generation.delay(
+            user_uid, generation_name, user_prompt, selected_style
+        )
+        
+        # 2. Respondemos al frontend con el ID de la tarea.
+        #    El frontend usará este ID para preguntar más tarde si la tarea ha terminado.
+        #    El código 202 'Accepted' es el estándar para este tipo de respuesta.
+        return jsonify({
+            "message": "La generación ha comenzado. Te notificaremos cuando esté lista.",
+            "task_id": task.id
+        }), 202
+
+        # ----> FIN DEL CAMBIO <----
+
     except ValueError as ve:
+        # Los errores de validación (como nombre duplicado) se deben manejar aquí,
+        # porque ocurren ANTES de que la tarea sea enviada.
+        # Tu código ya hace esto con _generation_exists, lo cual es perfecto.
         current_app.logger.warning(f"Error de valor en /texto3D: {ve}")
         return jsonify({"error": str(ve)}), 400
     except Exception as e:

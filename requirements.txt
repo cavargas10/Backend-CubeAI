@@ -8,3 +8,5 @@ gunicorn
 flask-socketio
 eventlet
 gevent
+celery  
+redis  
