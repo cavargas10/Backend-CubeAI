@@ -12,12 +12,12 @@ task_queue = asyncio.Queue()
 jobs: Dict[str, Dict[str, Any]] = {}
 
 SERVICE_MAP = {
-    'texto3D': text3d_service.create_text3d,
-    'imagen3D': img3d_service.create_generation,
-    'textimg3D': textimg3d_service.create_textimg3d,
-    'unico3D': unico3d_service.create_unico3d,
-    'multiimagen3D': multiimg3d_service.create_multiimg3d, 
-    'boceto3D': boceto3d_service.create_boceto3d,      
+    'Texto3D': text3d_service.create_text3d,
+    'Imagen3D': img3d_service.create_generation,
+    'TextImg3D': textimg3d_service.create_textimg3d,
+    'Unico3D': unico3d_service.create_unico3d,
+    'MultiImagen3D': multiimg3d_service.create_multiimg3d,
+    'Boceto3D': boceto3d_service.create_boceto3d,
 }
 
 def create_job(job_type: str, user_id: str, data: Dict[str, Any]) -> str:

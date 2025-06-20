@@ -3,6 +3,16 @@ from typing import Dict, Any, Optional
 from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
 from queue_manager import SERVICE_MAP
+from services import (
+    text3d_service, img3d_service, textimg3d_service, 
+    unico3d_service, multiimg3d_service, boceto3d_service
+)
+
+INSTANCE_MAP = {
+    'Texto3D': text3d_service, 'Imagen3D': img3d_service, 
+    'TextImg3D': textimg3d_service, 'Unico3D': unico3d_service, 
+    'MultiImagen3D': multiimg3d_service, 'Boceto3D': boceto3d_service,
+}
 
 router = APIRouter(
     prefix="/generation",  
@@ -30,7 +40,7 @@ async def enqueue_text3d_generation(
     }
     
     try:
-        job_id = create_job(job_type='texto3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='Texto3D', user_id=user_uid, data=job_data)
 
         await task_queue.put(job_id)
 
@@ -58,7 +68,7 @@ async def enqueue_image3d_generation(
     }
 
     try:
-        job_id = create_job(job_type='imagen3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='Imagen3D', user_id=user_uid, data=job_data)
         await task_queue.put(job_id)
         
         return {
@@ -94,7 +104,7 @@ async def enqueue_textimg3d_generation(
     }
     
     try:
-        job_id = create_job(job_type='textimg3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='TextImg3D', user_id=user_uid, data=job_data)
         await task_queue.put(job_id)
         
         return {
@@ -121,7 +131,7 @@ async def enqueue_unico3d_generation(
     }
 
     try:
-        job_id = create_job(job_type='unico3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='Unico3D', user_id=user_uid, data=job_data)
         await task_queue.put(job_id)
         
         return {
@@ -152,7 +162,7 @@ async def enqueue_multi_image_3d_generation(
     }
 
     try:
-        job_id = create_job(job_type='multiimagen3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='MultiImagen3D', user_id=user_uid, data=job_data)
         await task_queue.put(job_id)
         
         return {
@@ -181,7 +191,7 @@ async def enqueue_boceto_3d_generation(
     }
 
     try:
-        job_id = create_job(job_type='boceto3D', user_id=user_uid, data=job_data)
+        job_id = create_job(job_type='Boceto3D', user_id=user_uid, data=job_data)
         await task_queue.put(job_id)
         
         return {
@@ -200,26 +210,17 @@ async def get_user_generations(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     user_uid = user["uid"]
-
-    if generation_type in SERVICE_MAP:
-        from services import (
-            text3d_service, img3d_service, textimg3d_service, 
-            unico3d_service, multiimg3d_service, boceto3d_service
-        )
-        instance_map = {
-            'Texto3D': text3d_service, 'Imagen3D': img3d_service, 
-            'TextImg3D': textimg3d_service, 'Unico3D': unico3d_service, 
-            'MultiImagen3D': multiimg3d_service, 'Boceto3D': boceto3d_service
-        }
-
-        service_instance = instance_map.get(generation_type)
-        if service_instance:
+    
+    service_instance = INSTANCE_MAP.get(generation_type)
+    
+    if service_instance:
+        try:
             generations = service_instance.get_generations(user_uid)
             return generations
-        else:
-            raise HTTPException(status_code=400, detail=f"Tipo de generación no válido: {generation_type}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al obtener el historial: {e}")
     else:
-        raise HTTPException(status_code=400, detail=f"Tipo de generación no configurado: {generation_type}")
+        raise HTTPException(status_code=400, detail=f"Tipo de generación no válido: {generation_type}")
 
 @router.get("/status/{job_id}")
 async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
