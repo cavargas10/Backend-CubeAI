@@ -9,7 +9,7 @@ router = APIRouter(
     tags=["Generation"]      
 )
 
-@router.post("/texto3D")
+@router.post("/Texto3D")
 async def enqueue_text3d_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
@@ -44,7 +44,7 @@ async def enqueue_text3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/imagen3D")
+@router.post("/Imagen3D")
 async def enqueue_image3d_generation(
     generationName: str = Form(...),
     image: UploadFile = File(...),
@@ -77,7 +77,7 @@ async def enqueue_image3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/textimg3D")
+@router.post("/TextImg3D")
 async def enqueue_textimg3d_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
@@ -113,7 +113,7 @@ async def enqueue_textimg3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/unico3D")
+@router.post("/Unico3D")
 async def enqueue_unico3d_generation(
     generationName: str = Form(...),
     image: UploadFile = File(...),
@@ -146,7 +146,7 @@ async def enqueue_unico3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/multiimagen3D")
+@router.post("/MultiImagen3D")
 async def enqueue_multi_image_3d_generation(
     generationName: str = Form(...),
     frontal: UploadFile = File(...),
@@ -189,7 +189,7 @@ async def enqueue_multi_image_3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/boceto3D")
+@router.post("/Boceto3D")
 async def enqueue_boceto_3d_generation(
     description: Optional[str] = Form(""),
     generationName: str = Form(...),
