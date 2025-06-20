@@ -77,7 +77,7 @@ async def enqueue_image3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/TextoImagen3D")
+@router.post("/TextImg3D")
 async def enqueue_textimg3d_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
