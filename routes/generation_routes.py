@@ -2,17 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, F
 from typing import Dict, Any, Optional
 from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
-from queue_manager import SERVICE_MAP
-from services import (
-    text3d_service, img3d_service, textimg3d_service, 
-    unico3d_service, multiimg3d_service, boceto3d_service
-)
-
-INSTANCE_MAP = {
-    'Texto3D': text3d_service, 'Imagen3D': img3d_service, 
-    'TextImg3D': textimg3d_service, 'Unico3D': unico3d_service, 
-    'MultiImagen3D': multiimg3d_service, 'Boceto3D': boceto3d_service,
-}
+from services import SERVICE_INSTANCE_MAP
 
 router = APIRouter(
     prefix="/generation",  
@@ -211,7 +201,7 @@ async def get_user_generations(
 ):
     user_uid = user["uid"]
     
-    service_instance = INSTANCE_MAP.get(generation_type)
+    service_instance = SERVICE_INSTANCE_MAP.get(generation_type)
     
     if service_instance:
         try:

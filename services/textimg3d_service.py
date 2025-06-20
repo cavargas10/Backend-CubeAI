@@ -114,5 +114,3 @@ class TextImg3DService(BaseGenerationService):
                         os.remove(file_path)
                     except OSError as e:
                         print(f"Error al eliminar el archivo temporal {file_path}: {e}")
-
-textimg3d_service = TextImg3DService()

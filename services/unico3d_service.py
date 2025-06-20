@@ -81,5 +81,3 @@ class Unico3DService(BaseGenerationService):
                         os.remove(file_path)
                     except OSError as e:
                         print(f"Error al eliminar el archivo temporal {file_path}: {e}")
-
-unico3d_service = Unico3DService()

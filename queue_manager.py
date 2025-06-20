@@ -1,12 +1,10 @@
 import asyncio
 import uuid
 from typing import Dict, Any
-from services.text3d_service import text3d_service
-from services.img3d_service import img3d_service
-from services.textimg3d_service import textimg3d_service
-from services.unico3d_service import unico3d_service
-from services.multiimg3d_service import multiimg3d_service
-from services.boceto3d_service import boceto3d_service
+from services import (
+    text3d_service, img3d_service, textimg3d_service, 
+    unico3d_service, multiimg3d_service, boceto3d_service
+)
 
 task_queue = asyncio.Queue()
 jobs: Dict[str, Dict[str, Any]] = {}
