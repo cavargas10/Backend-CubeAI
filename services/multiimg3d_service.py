@@ -40,9 +40,11 @@ class MultiImg3DService(BaseGenerationService):
         temp_files_to_clean = list(temp_input_files.values())
 
         try:
+            client = self._get_client()
             loop = asyncio.get_running_loop()
 
-            await loop.run_in_executor(None, partial(self.client.predict, api_name="/start_session"))
+            start_session_func = partial(client.predict, api_name="/start_session")
+            await loop.run_in_executor(None, start_session_func)
 
             preprocess_func = partial(
                 self.client.predict,
@@ -98,7 +100,8 @@ class MultiImg3DService(BaseGenerationService):
                 raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
 
-            await loop.run_in_executor(None, partial(self.client.predict, api_name="/end_session"))
+            end_session_func = partial(client.predict, api_name="/end_session")
+            await loop.run_in_executor(None, end_session_func)
 
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')

@@ -29,9 +29,10 @@ class TextImg3DService(BaseGenerationService):
         temp_files_to_clean = []
 
         try:
+            client = self._get_client()
             loop = asyncio.get_running_loop()
 
-            start_session_func = partial(self.client.predict, api_name="/start_session")
+            start_session_func = partial(client.predict, api_name="/start_session")
             await loop.run_in_executor(None, start_session_func)
 
             generate_image_func = partial(
@@ -83,7 +84,7 @@ class TextImg3DService(BaseGenerationService):
                 raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
 
-            end_session_func = partial(self.client.predict, api_name="/end_session")
+            end_session_func = partial(client.predict, api_name="/end_session")
             await loop.run_in_executor(None, end_session_func)
 
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'

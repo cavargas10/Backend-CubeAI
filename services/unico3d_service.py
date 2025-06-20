@@ -26,7 +26,7 @@ class Unico3DService(BaseGenerationService):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        unique_filename = f"temp_image_{uuid.uuid4().hex}_{image_filename}"
+        unique_filename = f"temp_image_unico_{uuid.uuid4().hex}_{image_filename}"
         with open(unique_filename, "wb") as f:
             f.write(image_bytes)
         
@@ -34,10 +34,11 @@ class Unico3DService(BaseGenerationService):
         extracted_glb_path = None
 
         try:
+            self._get_client() 
             loop = asyncio.get_running_loop()
 
             generate_func = partial(
-                self.client.predict,
+                self.client.predict, 
                 file(unique_filename),
                 True,
                 -1,
