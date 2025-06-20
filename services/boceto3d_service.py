@@ -5,15 +5,12 @@ from config.firebase_config import db
 from config.huggingface_config import create_hf_client
 from gradio_client import handle_file
 from dotenv import load_dotenv
-from huggingface_hub import login
 import datetime
 import uuid
 import os
 from utils.storage_utils import upload_to_storage
 
 load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
-login(token=HF_TOKEN)
 
 class Boceto3DService(BaseGenerationService):
     def __init__(self):

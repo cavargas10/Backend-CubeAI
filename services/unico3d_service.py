@@ -4,7 +4,6 @@ from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from gradio_client import file
 from config.huggingface_config import create_hf_client
-from huggingface_hub import login
 from dotenv import load_dotenv
 import datetime
 import uuid
@@ -12,8 +11,6 @@ import os
 from utils.storage_utils import upload_to_storage
 
 load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
-login(token=HF_TOKEN)
 
 class Unico3DService(BaseGenerationService):
     def __init__(self):
