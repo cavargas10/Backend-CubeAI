@@ -15,7 +15,13 @@ load_dotenv()
 class Boceto3DService(BaseGenerationService):
     def __init__(self):
         super().__init__(collection_name="Boceto3D", readable_name="Boceto a 3D")
-        self.client = create_hf_client(os.getenv("CLIENT_BOCETO3D_URL"))
+        self.client = None 
+
+    def _get_client(self):
+        if self.client is None:
+            print(f"Creando cliente Gradio para {self.collection_name}...")
+            self.client = create_hf_client(os.getenv("CLIENT_BOCETO3D_URL"))
+        return self.client
     
     async def create_boceto3d(self, user_uid, image_file, generation_name, description=""):
         if self._generation_exists(user_uid, generation_name):

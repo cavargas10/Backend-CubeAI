@@ -14,7 +14,12 @@ load_dotenv()
 class TextImg3DService(BaseGenerationService):
     def __init__(self):
         super().__init__(collection_name="TextoImagen3D", readable_name="Texto a Imagen a 3D")
-        self.client = create_hf_client(os.getenv("CLIENT_TEXTOIMAGEN3D_URL"))
+        self.client = None 
+
+    def _get_client(self):
+        if self.client is None:
+            print(f"Creando cliente Gradio para {self.collection_name}...")
+            self.client = create_hf_client(os.getenv("CLIENT_TEXTOIMAGEN3D_URL"))
 
     async def create_textimg3d(self, user_uid, generation_name, subject, style, additional_details):
         if self._generation_exists(user_uid, generation_name):

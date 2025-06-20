@@ -15,8 +15,13 @@ load_dotenv()
 class Unico3DService(BaseGenerationService):
     def __init__(self):
         super().__init__(collection_name="Unico3D", readable_name="Unico a 3D")
-        self.client = create_hf_client(os.getenv("CLIENT_UNICO3D_URL"))
+        self.client = None 
 
+    def _get_client(self):
+        if self.client is None:
+            print(f"Creando cliente Gradio para {self.collection_name}...")
+            self.client = create_hf_client(os.getenv("CLIENT_UNICO3D_URL"))
+            
     async def create_unico3d(self, user_uid, image_file, generation_name):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
