@@ -23,7 +23,7 @@ class MultiImg3DService(BaseGenerationService):
             self.client = create_hf_client(os.getenv("CLIENT_MULTI3D_URL"))
         return self.client
 
-    async def create_multiimg3d(self, user_uid, frontal_image, lateral_image, trasera_image, generation_name):
+    async def create_multiimg3d(self, user_uid, frontal_bytes, lateral_bytes, trasera_bytes, generation_name, filenames=None):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
@@ -33,9 +33,9 @@ class MultiImg3DService(BaseGenerationService):
             "trasera": f"temp_trasera_{uuid.uuid4().hex}.png"
         }
         
-        with open(temp_input_files["frontal"], "wb") as f: f.write(await frontal_image.read())
-        with open(temp_input_files["lateral"], "wb") as f: f.write(await lateral_image.read())
-        with open(temp_input_files["trasera"], "wb") as f: f.write(await trasera_image.read())
+        with open(temp_input_files["frontal"], "wb") as f: f.write(frontal_bytes)
+        with open(temp_input_files["lateral"], "wb") as f: f.write(lateral_bytes)
+        with open(temp_input_files["trasera"], "wb") as f: f.write(trasera_bytes)
 
         temp_files_to_clean = list(temp_input_files.values())
 

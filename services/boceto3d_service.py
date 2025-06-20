@@ -23,13 +23,14 @@ class Boceto3DService(BaseGenerationService):
             self.client = create_hf_client(os.getenv("CLIENT_BOCETO3D_URL"))
         return self.client
     
-    async def create_boceto3d(self, user_uid, image_file, generation_name, description=""):
+    async def create_boceto3d(self, user_uid, image_bytes, image_filename, generation_name, description=""):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        unique_filename = f"temp_boceto_{uuid.uuid4().hex}.png"
+        unique_filename = f"temp_boceto_{uuid.uuid4().hex}_{image_filename}"
         with open(unique_filename, "wb") as f:
-            f.write(await image_file.read())
+            f.write(image_bytes)
+            
         temp_files_to_clean = [unique_filename]
 
         try:

@@ -22,13 +22,13 @@ class Unico3DService(BaseGenerationService):
             print(f"Creando cliente Gradio para {self.collection_name}...")
             self.client = create_hf_client(os.getenv("CLIENT_UNICO3D_URL"))
             
-    async def create_unico3d(self, user_uid, image_file, generation_name):
+    async def create_generation(self, user_uid, image_bytes, image_filename, generation_name):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        unique_filename = f"temp_image_unico_{uuid.uuid4().hex}.png"
+        unique_filename = f"temp_image_{uuid.uuid4().hex}_{image_filename}"
         with open(unique_filename, "wb") as f:
-            f.write(await image_file.read())
+            f.write(image_bytes)
         
         temp_files_to_clean = [unique_filename]
         extracted_glb_path = None

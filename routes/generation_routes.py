@@ -52,9 +52,15 @@ async def enqueue_image3d_generation(
 ):
     user_uid = user["uid"]
 
+    image_bytes = await image.read()
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+
     job_data = {
         "generation_name": generationName,
-        "image_file": image  
+        "image_bytes": image_bytes, 
+        "image_filename": image.filename 
     }
 
     try:
@@ -115,9 +121,15 @@ async def enqueue_unico3d_generation(
 ):
     user_uid = user["uid"]
 
+    image_bytes = await image.read()
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+    
     job_data = {
         "generation_name": generationName,
-        "image_file": image
+        "image_bytes": image_bytes, 
+        "image_filename": image.filename 
     }
 
     try:
@@ -144,11 +156,23 @@ async def enqueue_multi_image_3d_generation(
 ):
     user_uid = user["uid"]
 
+    frontal_bytes = await frontal.read()
+    lateral_bytes = await lateral.read()
+    trasera_bytes = await trasera.read()
+
+    if not all([frontal_bytes, lateral_bytes, trasera_bytes]):
+        raise HTTPException(status_code=400, detail="Uno o más archivos de imagen están vacíos.")
+
     job_data = {
         "generation_name": generationName,
-        "frontal_image": frontal,
-        "lateral_image": lateral,
-        "trasera_image": trasera
+        "frontal_bytes": frontal_bytes,
+        "lateral_bytes": lateral_bytes,
+        "trasera_bytes": trasera_bytes,
+        "filenames": {
+            "frontal": frontal.filename,
+            "lateral": lateral.filename,
+            "trasera": trasera.filename
+        }
     }
 
     try:
@@ -174,9 +198,14 @@ async def enqueue_boceto_3d_generation(
 ):
     user_uid = user["uid"]
 
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+
     job_data = {
         "generation_name": generationName,
-        "image_file": image,
+        "image_bytes": image_bytes,
+        "image_filename": image.filename,
         "description": description
     }
 
