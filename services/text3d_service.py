@@ -23,18 +23,20 @@ class Text3DService(BaseGenerationService):
         temp_files_to_clean = []
 
         try:
+            client = self._get_client()
             loop = asyncio.get_running_loop()
 
-            await loop.run_in_executor(None, self.client.predict, None, "/start_session")
+            start_session_func = partial(client.predict, api_name="/start_session")
+            await loop.run_in_executor(None, start_session_func)
 
-            get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
+            get_seed_func = partial(client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
             result_get_seed = await loop.run_in_executor(None, get_seed_func)
             if not isinstance(result_get_seed, int):
                 raise ValueError(f"Seed inválido: {result_get_seed}")
             seed_value = result_get_seed
 
             text_to_3d_func = partial(
-                self.client.predict,
+                client.predict,
                 prompt=full_prompt,
                 seed=seed_value,
                 ss_guidance_strength=7.5,
@@ -49,13 +51,14 @@ class Text3DService(BaseGenerationService):
 
             generated_video_path = result_text_to_3d["video"]
             temp_files_to_clean.append(generated_video_path)
-            
-            extract_glb_func = partial(self.client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+
+            extract_glb_func = partial(client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
             result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             extracted_glb_path = result_extract_glb[1]
             temp_files_to_clean.append(extracted_glb_path)
-            
-            await loop.run_in_executor(None, self.client.predict, None, "/end_session")
+
+            end_session_func = partial(client.predict, api_name="/end_session")
+            await loop.run_in_executor(None, end_session_func)
             
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')

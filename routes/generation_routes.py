@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, F
 from typing import Dict, Any, Optional
 from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
+from queue_manager import SERVICE_MAP
 
 router = APIRouter(
     prefix="/generation",  
@@ -192,6 +193,33 @@ async def enqueue_boceto_3d_generation(
         raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+
+@router.get("/history/{generation_type}")
+async def get_user_generations(
+    generation_type: str,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    if generation_type in SERVICE_MAP:
+        from services import (
+            text3d_service, img3d_service, textimg3d_service, 
+            unico3d_service, multiimg3d_service, boceto3d_service
+        )
+        instance_map = {
+            'Texto3D': text3d_service, 'Imagen3D': img3d_service, 
+            'TextImg3D': textimg3d_service, 'Unico3D': unico3d_service, 
+            'MultiImagen3D': multiimg3d_service, 'Boceto3D': boceto3d_service
+        }
+
+        service_instance = instance_map.get(generation_type)
+        if service_instance:
+            generations = service_instance.get_generations(user_uid)
+            return generations
+        else:
+            raise HTTPException(status_code=400, detail=f"Tipo de generación no válido: {generation_type}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Tipo de generación no configurado: {generation_type}")
 
 @router.get("/status/{job_id}")
 async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
