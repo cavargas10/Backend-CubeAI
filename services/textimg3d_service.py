@@ -50,10 +50,18 @@ class TextImg3DService(BaseGenerationService):
                 raise FileNotFoundError("Error al generar la imagen 2D base.")
             temp_files_to_clean.append(generated_image_path)
 
-            preprocess_func = partial(self.client.predict, image=handle_file(generated_image_path), api_name="/preprocess_image")
-            preprocess_image_path = await loop.run_in_executor(None, preprocess_func)
+            preprocess_func = partial(client.predict, image=handle_file(generated_image_path), api_name="/preprocess_image")
+            preprocess_result = await loop.run_in_executor(None, preprocess_func)
+
+            if isinstance(preprocess_result, (list, tuple)) and preprocess_result:
+                preprocess_image_path = preprocess_result[0]
+            else:
+                preprocess_image_path = preprocess_result
+
             if not preprocess_image_path or not os.path.exists(preprocess_image_path):
+                print(f"Respuesta de preprocesamiento inválida o archivo no encontrado: {preprocess_result}")
                 raise FileNotFoundError("Error al preprocesar la imagen generada.")
+            
             temp_files_to_clean.append(preprocess_image_path)
             
             get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
