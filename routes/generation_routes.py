@@ -238,3 +238,54 @@ async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_
             pass
             
     return response
+
+@router.post("/preview")
+async def upload_generation_preview(
+    preview: UploadFile = File(...),
+    generation_name: str = Form(...),
+    prediction_type_api: str = Form(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    if not all([preview, generation_name, prediction_type_api]):
+        raise HTTPException(status_code=400, detail="Faltan datos en la solicitud")
+
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type_api)
+
+    if service_instance:
+        try:
+            updated_doc = service_instance.add_preview_image(
+                user_uid, 
+                generation_name, 
+                preview.file
+            )
+            return updated_doc
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error interno al subir la previsualización: {e}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Tipo de predicción no válido: {prediction_type_api}")
+
+@router.delete("/{prediction_type}/{generation_name}")
+async def delete_specific_generation(
+    prediction_type: str,
+    generation_name: str,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
+    
+    if service_instance:
+        try:
+            success = service_instance.delete_generation(user_uid, generation_name)
+            if success:
+                return {"success": True, "message": "Generación eliminada correctamente."}
+            else:
+                raise HTTPException(status_code=404, detail="Generación no encontrada")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error interno al eliminar la generación: {e}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Tipo de predicción no válido: {prediction_type}")
