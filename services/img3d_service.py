@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from config.huggingface_config import create_hf_client
@@ -18,31 +20,34 @@ class Img3DService(BaseGenerationService):
         super().__init__(collection_name="Imagen3D", readable_name="Imagen a 3D")
         self.client = create_hf_client(os.getenv("CLIENT_IMAGEN3D_URL"))
 
-    def create_generation(self, user_uid, image_file, generation_name):
+    async def create_generation(self, user_uid, image_file, generation_name):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
         unique_filename = f"temp_image_{uuid.uuid4().hex}.png"
-        image_file.save(unique_filename)
+        with open(unique_filename, "wb") as f:
+            f.write(await image_file.read())
         
         temp_files_to_clean = [unique_filename]
 
         try:
-            self.client.predict(api_name="/start_session")
+            loop = asyncio.get_running_loop()
+
+            start_session_func = partial(self.client.predict, api_name="/start_session")
+            await loop.run_in_executor(None, start_session_func)
+
+            preprocess_func = partial(self.client.predict, image=handle_file(unique_filename), api_name="/preprocess_image")
+            preprocess_image_path = await loop.run_in_executor(None, preprocess_func)
             
-            result_preprocess = self.client.predict(
-                image=handle_file(unique_filename),
-                api_name="/preprocess_image"
-            )
-            preprocess_image_path = result_preprocess
             if not os.path.exists(preprocess_image_path):
                 raise FileNotFoundError(f"El archivo preprocesado {preprocess_image_path} no existe.")
             temp_files_to_clean.append(preprocess_image_path)
+
+            get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
+            seed_value = await loop.run_in_executor(None, get_seed_func)
             
-            result_get_seed = self.client.predict(randomize_seed=True, seed=0, api_name="/get_seed")
-            seed_value = result_get_seed
-            
-            result_image_to_3d = self.client.predict(
+            image_to_3d_func = partial(
+                self.client.predict,
                 image=handle_file(preprocess_image_path),
                 seed=seed_value,
                 ss_guidance_strength=7.5,
@@ -51,22 +56,22 @@ class Img3DService(BaseGenerationService):
                 slat_sampling_steps=12,
                 api_name="/image_to_3d"
             )
+            result_image_to_3d = await loop.run_in_executor(None, image_to_3d_func)
             generated_3d_asset = result_image_to_3d["video"]
             if not os.path.exists(generated_3d_asset):
                 raise FileNotFoundError(f"El archivo generado {generated_3d_asset} no existe.")
             temp_files_to_clean.append(generated_3d_asset)
 
-            result_extract_glb = self.client.predict(
-                mesh_simplify=0.95,
-                texture_size=1024,
-                api_name="/extract_glb"
-            )
+            extract_glb_func = partial(self.client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+            result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             extracted_glb_path = result_extract_glb[1]
+            
             if not os.path.exists(extracted_glb_path):
                 raise FileNotFoundError(f"El archivo GLB {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
             
-            self.client.predict(api_name="/end_session")
+            end_session_func = partial(self.client.predict, api_name="/end_session")
+            await loop.run_in_executor(None, end_session_func)
 
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')        

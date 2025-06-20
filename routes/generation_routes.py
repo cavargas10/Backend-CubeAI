@@ -1,233 +1,221 @@
-from flask import Blueprint, jsonify, request, current_app
-from middleware.auth_middleware import verify_token_middleware
-from services.img3d_service import img3d_service
-from services.text3d_service import text3d_service
-from services.textimg3d_service import textimg3d_service
-from services.unico3d_service import unico3d_service
-from services.multiimg3d_service import multiimg3d_service
-from services.boceto3d_service import boceto3d_service
+from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, File
+from typing import Dict, Any, Optional
+from queue_manager import task_queue, create_job, jobs
+from middleware.auth_middleware_fastapi import get_current_user
 
-bp = Blueprint('generation', __name__)
+router = APIRouter(
+    prefix="/generation",  
+    tags=["Generation"]      
+)
 
-SERVICE_MAP = {
-    "Imagen3D": img3d_service,
-    "Texto3D": text3d_service,
-    "TextImg3D": textimg3d_service,
-    "Unico3D": unico3d_service,
-    "MultiImagen3D": multiimg3d_service,
-    "Boceto3D": boceto3d_service,
-}
+@router.post("/texto3D")
+async def enqueue_text3d_generation(
+    payload: Dict[str, Any] = Body(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
 
-READABLE_TO_API_TYPE_MAP = {
-    "Imagen a 3D": "Imagen3D",
-    "Texto a 3D": "Texto3D",
-    "Texto a Imagen a 3D": "TextImg3D",
-    "Unico a 3D": "Unico3D",
-    "Multi Imagen a 3D": "MultiImagen3D",
-    "Boceto a 3D": "Boceto3D",
-}
+    generation_name = payload.get("generationName")
+    user_prompt = payload.get("prompt")
+    selected_style = payload.get("selectedStyle")
 
-@bp.route("/imagen3D", methods=["POST"])
-@verify_token_middleware
-def predict_generation():
+    if not all([generation_name, user_prompt, selected_style]):
+        raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName, prompt, selectedStyle")
+
+    job_data = {
+        "generation_name": generation_name,
+        "user_prompt": user_prompt,
+        "selected_style": selected_style
+    }
+    
     try:
-        image_file = request.files.get("image")
-        generation_name = request.form.get("generationName")
-        user_uid = request.user["uid"]
-        prediction_img3d_result = img3d_service.create_generation(user_uid, image_file, generation_name)
-        return jsonify(prediction_img3d_result)
+        job_id = create_job(job_type='texto3D', user_id=user_uid, data=job_data)
+
+        await task_queue.put(job_id)
+
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /imagen3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /imagen3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/texto3D", methods=["POST"])
-@verify_token_middleware
-def create_text3d():
+@router.post("/imagen3D")
+async def enqueue_image3d_generation(
+    generationName: str = Form(...),
+    image: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    job_data = {
+        "generation_name": generationName,
+        "image_file": image  
+    }
+
     try:
-        user_uid = request.user["uid"]
-        generation_name = request.json.get("generationName")
-        user_prompt = request.json.get("prompt")
-        selected_style = request.json.get("selectedStyle")
-
-        if not all([generation_name, user_prompt, selected_style]):
-            return jsonify({"error": "Faltan campos requeridos"}), 400
-
-        prediction_text3d_result = text3d_service.create_text3d(user_uid, generation_name, user_prompt, selected_style)
-        return jsonify(prediction_text3d_result)
+        job_id = create_job(job_type='imagen3D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /texto3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /texto3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/textimg3D", methods=["POST"])
-@verify_token_middleware
-def create_textimg3d():
+@router.post("/textimg3D")
+async def enqueue_textimg3d_generation(
+    payload: Dict[str, Any] = Body(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+    
+    generation_name = payload.get("generationName")
+    subject = payload.get("subject")
+    style = payload.get("style")
+    additional_details = payload.get("additionalDetails")
+
+    if not all([generation_name, subject, style, additional_details]):
+        raise HTTPException(status_code=400, detail="Faltan campos requeridos")
+
+    job_data = {
+        "generation_name": generation_name,
+        "subject": subject,
+        "style": style,
+        "additional_details": additional_details
+    }
+    
     try:
-        user_uid = request.user["uid"]
-        generation_name = request.json.get("generationName")
-        subject = request.json.get("subject")
-        style = request.json.get("style")
-        additional_details = request.json.get("additionalDetails")
-
-        if not all([generation_name, subject, style, additional_details]):
-            return jsonify({"error": "Faltan campos requeridos"}), 400
-
-        prediction_textimg3d_result = textimg3d_service.create_textimg3d(user_uid, generation_name, subject, style, additional_details)
-        return jsonify(prediction_textimg3d_result)
+        job_id = create_job(job_type='textimg3D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /textimg3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /textimg3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/unico3D", methods=["POST"])
-@verify_token_middleware
-def predict_unico3d():
+@router.post("/unico3D")
+async def enqueue_unico3d_generation(
+    generationName: str = Form(...),
+    image: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    job_data = {
+        "generation_name": generationName,
+        "image_file": image
+    }
+
     try:
-        user_uid = request.user["uid"]
-        image_file = request.files.get("image")
-        generation_name = request.form.get("generationName")
-
-        if not image_file or not generation_name:
-            return jsonify({"error": "Faltan campos requeridos: imagen y/o nombre de generación"}), 400
-
-        prediction_unico3d_result = unico3d_service.create_unico3d(user_uid, image_file, generation_name)
-        return jsonify(prediction_unico3d_result)
+        job_id = create_job(job_type='unico3D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /unico3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /unico3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/multiimagen3D", methods=["POST"])
-@verify_token_middleware
-def predict_multi_image_3d():
+@router.post("/multiimagen3D")
+async def enqueue_multi_image_3d_generation(
+    generationName: str = Form(...),
+    frontal: UploadFile = File(...),
+    lateral: UploadFile = File(...),
+    trasera: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    job_data = {
+        "generation_name": generationName,
+        "frontal_image": frontal,
+        "lateral_image": lateral,
+        "trasera_image": trasera
+    }
+
     try:
-        frontal_image = request.files.get("frontal")
-        lateral_image = request.files.get("lateral")
-        trasera_image = request.files.get("trasera")
-        generation_name = request.form.get("generationName")
-        user_uid = request.user["uid"]
-
-        if not frontal_image or not lateral_image or not trasera_image:
-            raise ValueError("Por favor, cargue las tres imágenes (frontal, lateral y trasera).")
-
-        if not generation_name:
-            raise ValueError("Por favor, ingrese un nombre para la generación.")
-
-        prediction_multiimg3d_result = multiimg3d_service.create_multiimg3d(
-            user_uid=user_uid,
-            frontal_image=frontal_image,
-            lateral_image=lateral_image,
-            trasera_image=trasera_image,
-            generation_name=generation_name
-        )
-        return jsonify(prediction_multiimg3d_result)
+        job_id = create_job(job_type='multiimagen3D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /multiimagen3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /multiimagen3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/boceto3D", methods=["POST"])
-@verify_token_middleware
-def predict_boceto_3d():
+@router.post("/boceto3D")
+async def enqueue_boceto_3d_generation(
+    description: Optional[str] = Form(""),
+    generationName: str = Form(...),
+    image: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+
+    job_data = {
+        "generation_name": generationName,
+        "image_file": image,
+        "description": description
+    }
+
     try:
-        image_file = request.files.get("image")
-        generation_name = request.form.get("generationName")
-        description = request.form.get("description", "")
-        user_uid = request.user["uid"]
-
-        if not image_file:
-            raise ValueError("Por favor, cargue una imagen del boceto.")
-        if not generation_name:
-            raise ValueError("Por favor, ingrese un nombre para la generación.")
-
-        prediction_boceto3d_result = boceto3d_service.create_boceto3d(
-            user_uid=user_uid,
-            image_file=image_file,
-            generation_name=generation_name,
-            description=description
-        )
-        return jsonify(prediction_boceto3d_result)
+        job_id = create_job(job_type='boceto3D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
     except ValueError as ve:
-        current_app.logger.warning(f"Error de valor en /boceto3D: {ve}")
-        return jsonify({"error": str(ve)}), 400
+        raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        current_app.logger.error(f"Error inesperado en /boceto3D: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@bp.route("/generation/preview", methods=["POST"])
-@verify_token_middleware
-def upload_generation_preview():
-    try:
-        user_uid = request.user["uid"]
-        preview_file = request.files.get("preview")
-        generation_name = request.form.get("generation_name")
-        prediction_type_api = request.form.get("prediction_type_api")
+@router.get("/status/{job_id}")
+async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    job = jobs.get(job_id)
 
-        if not all([preview_file, generation_name, prediction_type_api]):
-            return jsonify({"error": "Faltan datos en la solicitud"}), 400
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
 
-        if prediction_type_api in SERVICE_MAP:
-            service_instance = SERVICE_MAP[prediction_type_api]
-            updated_doc = service_instance.add_preview_image(user_uid, generation_name, preview_file)
-            return jsonify(updated_doc), 200
-        else:
-            return jsonify({"error": "Tipo de predicción no válido"}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error al subir la previsualización: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor al subir la previsualización"}), 500
+    if job["user_id"] != user["uid"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso para ver este trabajo")
 
-@bp.route("/generations", methods=["GET"])
-@verify_token_middleware
-def get_user_generations():
-    try:
-        user_uid = request.user["uid"]
-        generation_type_api = request.args.get('type')
-
-        if generation_type_api in SERVICE_MAP:
-            service_instance = SERVICE_MAP[generation_type_api]
-            generations = service_instance.get_generations(user_uid)
-            return jsonify(generations), 200
-        else:
-            return jsonify({"error": "Tipo de generación no válido"}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error al obtener generaciones: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
-
-@bp.route("/generation", methods=["DELETE"])
-@verify_token_middleware
-def delete_generic_generation():
-    try:
-        user_uid = request.user["uid"]
-        data = request.get_json()
-
-        generation_name = data.get("generation_name")
-        prediction_type_readable = data.get("prediction_type")
-
-        if not generation_name or not prediction_type_readable:
-            return jsonify({"error": "Faltan datos en la solicitud"}), 400
-
-        generation_type_api = READABLE_TO_API_TYPE_MAP.get(prediction_type_readable)
-
-        if generation_type_api and generation_type_api in SERVICE_MAP:
-            service_instance = SERVICE_MAP[generation_type_api]
-            success = service_instance.delete_generation(user_uid, generation_name)
-            if success:
-                return jsonify({"success": True}), 200
-            else:
-                return jsonify({"error": "Generación no encontrada"}), 404
-        else:
-            return jsonify({"error": f"Tipo de generación no válido: {prediction_type_readable}"}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error al eliminar generación: {e}", exc_info=True)
-        return jsonify({"error": "Error interno del servidor"}), 500
+    response = {"status": job["status"]}
+    if job["status"] == "completed":
+        response["result"] = job["result"]
+    elif job["status"] == "failed":
+        response["error"] = job["error"]
+    
+    if job["status"] == "pending":
+        try:
+            queue_items = list(task_queue._queue)
+            position = queue_items.index(job_id) + 1
+            response["position_in_queue"] = position
+            response["queue_size"] = len(queue_items)
+        except ValueError:
+            pass
+            
+    return response

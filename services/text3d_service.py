@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from config.huggingface_config import create_hf_client
@@ -16,7 +18,7 @@ class Text3DService(BaseGenerationService):
         super().__init__(collection_name="Texto3D", readable_name="Texto a 3D")
         self.client = create_hf_client(os.getenv("CLIENT_TEXTO3D_URL"))
 
-    def create_text3d(self, user_uid, generation_name, user_prompt, selected_style):
+    async def create_text3d(self, user_uid, generation_name, user_prompt, selected_style):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
@@ -24,14 +26,18 @@ class Text3DService(BaseGenerationService):
         temp_files_to_clean = []
 
         try:
-            self.client.predict(api_name="/start_session")
+            loop = asyncio.get_running_loop()
 
-            result_get_seed = self.client.predict(randomize_seed=True, seed=0, api_name="/get_seed")
+            await loop.run_in_executor(None, self.client.predict, None, "/start_session")
+
+            get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
+            result_get_seed = await loop.run_in_executor(None, get_seed_func)
             if not isinstance(result_get_seed, int):
                 raise ValueError(f"Seed inválido: {result_get_seed}")
             seed_value = result_get_seed
 
-            result_text_to_3d = self.client.predict(
+            text_to_3d_func = partial(
+                self.client.predict,
                 prompt=full_prompt,
                 seed=seed_value,
                 ss_guidance_strength=7.5,
@@ -40,26 +46,20 @@ class Text3DService(BaseGenerationService):
                 slat_sampling_steps=25,
                 api_name="/text_to_3d"
             )
+            result_text_to_3d = await loop.run_in_executor(None, text_to_3d_func)
             if not isinstance(result_text_to_3d, dict) or "video" not in result_text_to_3d:
                 raise ValueError("Error al generar modelo 3D: respuesta de la API inválida.")
 
             generated_video_path = result_text_to_3d["video"]
-            if not os.path.exists(generated_video_path):
-                raise FileNotFoundError(f"El archivo de video generado {generated_video_path} no existe.")
             temp_files_to_clean.append(generated_video_path)
-
-            result_extract_glb = self.client.predict(
-                mesh_simplify=0.95,
-                texture_size=1024,
-                api_name="/extract_glb"
-            )
+            
+            extract_glb_func = partial(self.client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+            result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             extracted_glb_path = result_extract_glb[1]
-            if not os.path.exists(extracted_glb_path):
-                raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
-
-            self.client.predict(api_name="/end_session")
-
+            
+            await loop.run_in_executor(None, self.client.predict, None, "/end_session")
+            
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             preview_video_url = upload_to_storage(generated_video_path, f'{generation_folder}/preview.mp4')

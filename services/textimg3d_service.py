@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from config.huggingface_config import create_hf_client
@@ -17,7 +19,7 @@ class TextImg3DService(BaseGenerationService):
         super().__init__(collection_name="TextoImagen3D", readable_name="Texto a Imagen a 3D")
         self.client = create_hf_client(os.getenv("CLIENT_TEXTOIMAGEN3D_URL"))
 
-    def create_textimg3d(self, user_uid, generation_name, subject, style, additional_details):
+    async def create_textimg3d(self, user_uid, generation_name, subject, style, additional_details):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
@@ -25,9 +27,13 @@ class TextImg3DService(BaseGenerationService):
         temp_files_to_clean = []
 
         try:
-            self.client.predict(api_name="/start_session")
+            loop = asyncio.get_running_loop()
 
-            generated_image_path = self.client.predict(
+            start_session_func = partial(self.client.predict, api_name="/start_session")
+            await loop.run_in_executor(None, start_session_func)
+
+            generate_image_func = partial(
+                self.client.predict,
                 prompt=prompt_generation,
                 seed=42,
                 randomize_seed=True,
@@ -36,22 +42,22 @@ class TextImg3DService(BaseGenerationService):
                 guidance_scale=3.5,
                 api_name="/generate_flux_image"
             )
+            generated_image_path = await loop.run_in_executor(None, generate_image_func)
             if not generated_image_path or not os.path.exists(generated_image_path):
                 raise FileNotFoundError("Error al generar la imagen 2D base.")
             temp_files_to_clean.append(generated_image_path)
 
-            preprocess_image_path = self.client.predict(
-                image=handle_file(generated_image_path),
-                api_name="/preprocess_image"
-            )
+            preprocess_func = partial(self.client.predict, image=handle_file(generated_image_path), api_name="/preprocess_image")
+            preprocess_image_path = await loop.run_in_executor(None, preprocess_func)
             if not preprocess_image_path or not os.path.exists(preprocess_image_path):
                 raise FileNotFoundError("Error al preprocesar la imagen generada.")
             temp_files_to_clean.append(preprocess_image_path)
             
-            result_get_seed = self.client.predict(randomize_seed=True, seed=0, api_name="/get_seed")
-            seed_value = result_get_seed
+            get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
+            seed_value = await loop.run_in_executor(None, get_seed_func)
 
-            result_image_to_3d = self.client.predict(
+            image_to_3d_func = partial(
+                self.client.predict,
                 image=handle_file(preprocess_image_path),
                 seed=seed_value,
                 ss_guidance_strength=7.5,
@@ -60,6 +66,7 @@ class TextImg3DService(BaseGenerationService):
                 slat_sampling_steps=12,
                 api_name="/image_to_3d"
             )
+            result_image_to_3d = await loop.run_in_executor(None, image_to_3d_func)
             if not isinstance(result_image_to_3d, dict) or "video" not in result_image_to_3d:
                 raise ValueError("Error al generar el modelo 3D: respuesta de la API inválida.")
             generated_3d_asset = result_image_to_3d["video"]
@@ -67,17 +74,15 @@ class TextImg3DService(BaseGenerationService):
                 raise FileNotFoundError(f"El archivo 3D generado {generated_3d_asset} no existe.")
             temp_files_to_clean.append(generated_3d_asset)
 
-            result_extract_glb = self.client.predict(
-                mesh_simplify=0.95,
-                texture_size=1024,
-                api_name="/extract_glb"
-            )
+            extract_glb_func = partial(self.client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+            result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             extracted_glb_path = result_extract_glb[1]
             if not os.path.exists(extracted_glb_path):
                 raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
 
-            self.client.predict(api_name="/end_session")
+            end_session_func = partial(self.client.predict, api_name="/end_session")
+            await loop.run_in_executor(None, end_session_func)
 
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')

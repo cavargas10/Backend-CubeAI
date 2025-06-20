@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from config.huggingface_config import create_hf_client
@@ -18,7 +20,7 @@ class MultiImg3DService(BaseGenerationService):
         super().__init__(collection_name="MultiImagen3D", readable_name="Multi Imagen a 3D")
         self.client = create_hf_client(os.getenv("CLIENT_MULTI3D_URL"))
 
-    def create_multiimg3d(self, user_uid, frontal_image, lateral_image, trasera_image, generation_name):
+    async def create_multiimg3d(self, user_uid, frontal_image, lateral_image, trasera_image, generation_name):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
@@ -27,16 +29,20 @@ class MultiImg3DService(BaseGenerationService):
             "lateral": f"temp_lateral_{uuid.uuid4().hex}.png",
             "trasera": f"temp_trasera_{uuid.uuid4().hex}.png"
         }
-        frontal_image.save(temp_input_files["frontal"])
-        lateral_image.save(temp_input_files["lateral"])
-        trasera_image.save(temp_input_files["trasera"])
+        
+        with open(temp_input_files["frontal"], "wb") as f: f.write(await frontal_image.read())
+        with open(temp_input_files["lateral"], "wb") as f: f.write(await lateral_image.read())
+        with open(temp_input_files["trasera"], "wb") as f: f.write(await trasera_image.read())
 
         temp_files_to_clean = list(temp_input_files.values())
 
         try:
-            self.client.predict(api_name="/start_session")
+            loop = asyncio.get_running_loop()
 
-            preprocess_results = self.client.predict(
+            await loop.run_in_executor(None, partial(self.client.predict, api_name="/start_session"))
+
+            preprocess_func = partial(
+                self.client.predict,
                 images=[
                     {"image": handle_file(temp_input_files["frontal"])},
                     {"image": handle_file(temp_input_files["lateral"])},
@@ -44,6 +50,7 @@ class MultiImg3DService(BaseGenerationService):
                 ],
                 api_name="/preprocess_images"
             )
+            preprocess_results = await loop.run_in_executor(None, preprocess_func)
             if not isinstance(preprocess_results, list) or len(preprocess_results) != 3:
                 raise ValueError("Error al preprocesar las imágenes: respuesta inválida.")
 
@@ -53,12 +60,13 @@ class MultiImg3DService(BaseGenerationService):
                     raise FileNotFoundError(f"El archivo preprocesado {path} no existe.")
             temp_files_to_clean.extend(preprocess_paths)
 
-            result_get_seed = self.client.predict(randomize_seed=True, seed=0, api_name="/get_seed")
-            if not isinstance(result_get_seed, int):
-                raise ValueError(f"Seed inválido: {result_get_seed}")
-            seed_value = result_get_seed
+            get_seed_func = partial(self.client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
+            seed_value = await loop.run_in_executor(None, get_seed_func)
+            if not isinstance(seed_value, int):
+                raise ValueError(f"Seed inválido: {seed_value}")
 
-            result_image_to_3d = self.client.predict(
+            image_to_3d_func = partial(
+                self.client.predict,
                 multiimages=[
                     {"image": handle_file(preprocess_paths[0])},
                     {"image": handle_file(preprocess_paths[1])},
@@ -72,6 +80,7 @@ class MultiImg3DService(BaseGenerationService):
                 multiimage_algo="stochastic",
                 api_name="/image_to_3d"
             )
+            result_image_to_3d = await loop.run_in_executor(None, image_to_3d_func)
             if not isinstance(result_image_to_3d, dict) or "video" not in result_image_to_3d:
                 raise ValueError("Error al generar modelo 3D: respuesta inválida.")
             generated_3d_asset = result_image_to_3d["video"]
@@ -79,17 +88,14 @@ class MultiImg3DService(BaseGenerationService):
                 raise FileNotFoundError(f"El archivo 3D generado {generated_3d_asset} no existe.")
             temp_files_to_clean.append(generated_3d_asset)
 
-            result_extract_glb = self.client.predict(
-                mesh_simplify=0.95,
-                texture_size=1024,
-                api_name="/extract_glb"
-            )
+            extract_glb_func = partial(self.client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+            result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             extracted_glb_path = result_extract_glb[1]
             if not os.path.exists(extracted_glb_path):
                 raise FileNotFoundError(f"El archivo GLB extraído {extracted_glb_path} no existe.")
             temp_files_to_clean.append(extracted_glb_path)
 
-            self.client.predict(api_name="/end_session")
+            await loop.run_in_executor(None, partial(self.client.predict, api_name="/end_session"))
 
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')

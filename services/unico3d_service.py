@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from .base_generation_service import BaseGenerationService
 from config.firebase_config import db
 from gradio_client import file
@@ -18,18 +20,22 @@ class Unico3DService(BaseGenerationService):
         super().__init__(collection_name="Unico3D", readable_name="Unico a 3D")
         self.client = create_hf_client(os.getenv("CLIENT_UNICO3D_URL"))
 
-    def create_unico3d(self, user_uid, image_file, generation_name):
+    async def create_unico3d(self, user_uid, image_file, generation_name):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        unique_filename = f"temp_image_{uuid.uuid4().hex}.png"
-        image_file.save(unique_filename)
+        unique_filename = f"temp_image_unico_{uuid.uuid4().hex}.png"
+        with open(unique_filename, "wb") as f:
+            f.write(await image_file.read())
         
         temp_files_to_clean = [unique_filename]
         extracted_glb_path = None
 
         try:
-            result_generate3dv2 = self.client.predict(
+            loop = asyncio.get_running_loop()
+
+            generate_func = partial(
+                self.client.predict,
                 file(unique_filename),
                 True,
                 -1,
@@ -37,8 +43,9 @@ class Unico3DService(BaseGenerationService):
                 True,
                 0.1,
                 "std",
-                "/generate3dv2"
+                api_name="/generate3dv2" 
             )
+            result_generate3dv2 = await loop.run_in_executor(None, generate_func)
 
             if isinstance(result_generate3dv2, tuple):
                 extracted_glb_path = result_generate3dv2[0]
@@ -57,9 +64,9 @@ class Unico3DService(BaseGenerationService):
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": None, 
+                "previewUrl": None,
                 "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {} 
+                "raw_data": {}
             }
 
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)

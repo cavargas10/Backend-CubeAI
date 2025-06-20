@@ -8,3 +8,6 @@ gunicorn
 flask-socketio
 eventlet
 gevent
+
+fastapi
+uvicorn[standard]
