@@ -1,74 +1,76 @@
-from flask import Blueprint, jsonify, request, current_app
-from middleware.auth_middleware import verify_token_middleware
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from typing import Dict, Any, Optional
 from services import user_service
+from middleware.auth_middleware_fastapi import get_current_user
 
-bp = Blueprint('user', __name__)
+router = APIRouter(
+    prefix="/user",
+    tags=["User"]
+)
 
-@bp.route("/register_user", methods=["POST"])
-@verify_token_middleware
-def register_user():
+@router.post("/register")
+async def register_user(
+    payload: Dict[str, Any], 
+    user: Dict[str, Any] = Depends(get_current_user)
+):
     try:
         user_data = {
-            "uid": request.user["uid"],
-            "email": request.user["email"],
-            "name": request.json.get("name"),
-            "profile_picture": request.json.get("profile_picture", "")
+            "uid": user["uid"],
+            "email": user["email"],
+            "name": payload.get("name"),
+            "profile_picture": payload.get("profile_picture", "")
         }
         user_service.register_user(user_data)
-        return jsonify({"success": True}), 200
+        return {"success": True}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
 
-@bp.route("/user_data", methods=["GET"])
-@verify_token_middleware
-def get_user_data():
+@router.get("/data")
+async def get_user_data(user: Dict[str, Any] = Depends(get_current_user)):
     try:
-        user_uid = request.user["uid"]
-        user_data = user_service.get_user_data(user_uid)
+        user_data = user_service.get_user_data(user["uid"])
         if user_data:
-            return jsonify(user_data), 200
+            return user_data
         else:
-            return jsonify({"error": "Usuario no encontrado"}), 404
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
 
-@bp.route("/update_name", methods=["POST"])
-@verify_token_middleware
-def update_name():
+@router.post("/update/name")
+async def update_name(
+    payload: Dict[str, str], 
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    new_name = payload.get("name")
+    if not new_name or new_name.strip() == "":
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    
     try:
-        user_uid = request.user["uid"]
-        new_name = request.json.get("name")
-        if not new_name or new_name.strip() == "":
-            return jsonify({"error": "El nombre no puede estar vacío"}), 400
-        updated_user_data = user_service.update_user_name(user_uid, new_name)
-        return jsonify(updated_user_data), 200
+        updated_user_data = user_service.update_user_name(user["uid"], new_name)
+        return updated_user_data
     except Exception as e:
-        current_app.logger.error(f"Error en update_name: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
 
-@bp.route("/update_profile_picture", methods=["POST"])
-@verify_token_middleware
-def update_profile_picture():
-    try:
-        user_uid = request.user["uid"]
-        if 'profile_picture' not in request.files:
-            return jsonify({"error": "No se proporcionó ninguna imagen"}), 400
-        file = request.files['profile_picture']
-        if file.filename == '':
-            return jsonify({"error": "No se seleccionó ningún archivo"}), 400
-        if file:
-            profile_picture_url = user_service.update_profile_picture(user_uid, file)
-            return jsonify({"profile_picture": profile_picture_url}), 200
-    except Exception as e:
-        current_app.logger.error(f"Error en update_profile_picture: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500
+@router.post("/update/profile-picture")
+async def update_profile_picture(
+    profile_picture: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    if not profile_picture:
+        raise HTTPException(status_code=400, detail="No se proporcionó ninguna imagen")
+    if profile_picture.filename == '':
+        raise HTTPException(status_code=400, detail="No se seleccionó ningún archivo")
 
-@bp.route("/delete_user", methods=["DELETE"])
-@verify_token_middleware
-def delete_user():
     try:
-        user_uid = request.user["uid"]
-        user_service.delete_user(user_uid)
-        return jsonify({"success": True}), 200
+        profile_picture_url = user_service.update_profile_picture(user["uid"], profile_picture.file)
+        return {"profile_picture": profile_picture_url}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
+
+@router.delete("/delete")
+async def delete_user(user: Dict[str, Any] = Depends(get_current_user)):
+    try:
+        user_service.delete_user(user["uid"])
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
