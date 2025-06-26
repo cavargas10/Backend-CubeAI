@@ -14,7 +14,8 @@ worker_is_processing = asyncio.Event()
 SERVICE_MAP = {
     'Texto3D': text3d_service.create_text3d,
     'Imagen3D': img3d_service.create_generation,
-    'TextImg3D': textimg3d_service.create_textimg3d,
+    'TextoImagen2D': textimg3d_service.create_2d_image,
+    'TextImg3D': textimg3d_service.create_3d_from_image, 
     'Unico3D': unico3d_service.create_unico3d,
     'MultiImagen3D': multiimg3d_service.create_multiimg3d,
     'Boceto3D': boceto3d_service.create_boceto3d,

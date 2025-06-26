@@ -77,8 +77,8 @@ async def enqueue_image3d_generation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
 
-@router.post("/TextImg3D")
-async def enqueue_textimg3d_generation(
+@router.post("/TextoImagen2D")
+async def enqueue_text_to_2d_image_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -90,13 +90,45 @@ async def enqueue_textimg3d_generation(
     additional_details = payload.get("additionalDetails")
 
     if not all([generation_name, subject, style, additional_details]):
-        raise HTTPException(status_code=400, detail="Faltan campos requeridos")
+        raise HTTPException(status_code=400, detail="Faltan campos requeridos para la generación de imagen 2D.")
 
     job_data = {
         "generation_name": generation_name,
         "subject": subject,
         "style": style,
         "additional_details": additional_details
+    }
+    
+    try:
+        job_id = create_job(job_type='TextoImagen2D', user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "position_in_queue": task_queue.qsize()
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=409, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo de imagen 2D: {e}")
+
+@router.post("/TextImg3D")
+async def enqueue_textimg3d_generation(
+    payload: Dict[str, Any] = Body(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    user_uid = user["uid"]
+    
+    generation_name = payload.get("generationName")
+    image_url = payload.get("imageUrl")
+
+    if not all([generation_name, image_url]):
+        raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName y imageUrl.")
+
+    job_data = {
+        "generation_name": generation_name,
+        "image_url": image_url,
     }
     
     try:
@@ -111,7 +143,7 @@ async def enqueue_textimg3d_generation(
     except ValueError as ve:
         raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo 3D: {e}")
 
 @router.post("/Unico3D")
 async def enqueue_unico3d_generation(
