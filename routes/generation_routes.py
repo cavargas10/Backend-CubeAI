@@ -1,21 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, File
 from typing import Dict, Any, Optional
-from queue_manager import task_queue, create_job, jobs, worker_is_processing 
+from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
 from services import SERVICE_INSTANCE_MAP
+import logging
 
 router = APIRouter(
     prefix="/generation",  
     tags=["Generation"]      
 )
 
+async def enqueue_job(job_type: str, user_uid: str, job_data: Dict[str, Any]):
+    try:
+        job_id = create_job(job_type=job_type, user_id=user_uid, data=job_data)
+        await task_queue.put(job_id)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "message": "El trabajo ha sido añadido a la cola de procesamiento."
+        }
+    except ValueError as ve:
+        logging.warning(f"Conflicto al crear trabajo para el usuario {user_uid}: {str(ve)}")
+        raise HTTPException(status_code=409, detail=str(ve))
+    except Exception as e:
+        logging.error(f"Error interno al encolar trabajo '{job_type}' para el usuario {user_uid}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+
 @router.post("/Texto3D")
 async def enqueue_text3d_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     generation_name = payload.get("generationName")
     user_prompt = payload.get("prompt")
     selected_style = payload.get("selectedStyle")
@@ -29,20 +45,7 @@ async def enqueue_text3d_generation(
         "selected_style": selected_style
     }
     
-    try:
-        job_id = create_job(job_type='Texto3D', user_id=user_uid, data=job_data)
-
-        await task_queue.put(job_id)
-
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+    return await enqueue_job('Texto3D', user["uid"], job_data)
 
 @router.post("/Imagen3D")
 async def enqueue_image3d_generation(
@@ -50,10 +53,7 @@ async def enqueue_image3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     image_bytes = await image.read()
-
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
 
@@ -63,87 +63,44 @@ async def enqueue_image3d_generation(
         "image_filename": image.filename 
     }
 
-    try:
-        job_id = create_job(job_type='Imagen3D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+    return await enqueue_job('Imagen3D', user["uid"], job_data)
 
 @router.post("/TextoImagen2D")
 async def enqueue_text_to_2d_image_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-    
     generation_name = payload.get("generationName")
     subject = payload.get("subject")
     style = payload.get("style")
     additional_details = payload.get("additionalDetails")
 
-    if not all([generation_name, subject, style, additional_details]):
-        raise HTTPException(status_code=400, detail="Faltan campos requeridos para la generación de imagen 2D.")
-
+    if not all([generation_name, subject, style]):
+         raise HTTPException(status_code=400, detail="Faltan campos requeridos para la generación de imagen 2D.")
+    
     job_data = {
         "generation_name": generation_name,
         "subject": subject,
         "style": style,
-        "additional_details": additional_details
+        "additional_details": additional_details or ""
     }
     
-    try:
-        job_id = create_job(job_type='TextoImagen2D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo de imagen 2D: {e}")
+    return await enqueue_job('TextoImagen2D', user["uid"], job_data)
 
 @router.post("/TextImg3D")
 async def enqueue_textimg3d_generation(
     payload: Dict[str, Any] = Body(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-    
     generation_name = payload.get("generationName")
     image_url = payload.get("imageUrl")
 
     if not all([generation_name, image_url]):
         raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName y imageUrl.")
 
-    job_data = {
-        "generation_name": generation_name,
-        "image_url": image_url,
-    }
+    job_data = { "generation_name": generation_name, "image_url": image_url }
     
-    try:
-        job_id = create_job(job_type='TextImg3D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo 3D: {e}")
+    return await enqueue_job('TextImg3D', user["uid"], job_data)
 
 @router.post("/Unico3D")
 async def enqueue_unico3d_generation(
@@ -151,10 +108,7 @@ async def enqueue_unico3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     image_bytes = await image.read()
-
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
     
@@ -163,20 +117,8 @@ async def enqueue_unico3d_generation(
         "image_bytes": image_bytes, 
         "image_filename": image.filename 
     }
-
-    try:
-        job_id = create_job(job_type='Unico3D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+    
+    return await enqueue_job('Unico3D', user["uid"], job_data)
 
 @router.post("/MultiImagen3D")
 async def enqueue_multi_image_3d_generation(
@@ -186,8 +128,6 @@ async def enqueue_multi_image_3d_generation(
     trasera: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     frontal_bytes = await frontal.read()
     lateral_bytes = await lateral.read()
     trasera_bytes = await trasera.read()
@@ -207,19 +147,7 @@ async def enqueue_multi_image_3d_generation(
         }
     }
 
-    try:
-        job_id = create_job(job_type='MultiImagen3D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
+    return await enqueue_job('MultiImagen3D', user["uid"], job_data)
 
 @router.post("/Boceto3D")
 async def enqueue_boceto_3d_generation(
@@ -228,8 +156,6 @@ async def enqueue_boceto_3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
@@ -240,38 +166,8 @@ async def enqueue_boceto_3d_generation(
         "image_filename": image.filename,
         "description": description
     }
-
-    try:
-        job_id = create_job(job_type='Boceto3D', user_id=user_uid, data=job_data)
-        await task_queue.put(job_id)
-        
-        return {
-            "job_id": job_id,
-            "status": "queued",
-            "position_in_queue": task_queue.qsize()
-        }
-    except ValueError as ve:
-        raise HTTPException(status_code=409, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al encolar el trabajo: {e}")
-
-@router.get("/history/{generation_type}")
-async def get_user_generations(
-    generation_type: str,
-    user: Dict[str, Any] = Depends(get_current_user)
-):
-    user_uid = user["uid"]
     
-    service_instance = SERVICE_INSTANCE_MAP.get(generation_type)
-    
-    if service_instance:
-        try:
-            generations = service_instance.get_generations(user_uid)
-            return generations
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error al obtener el historial: {e}")
-    else:
-        raise HTTPException(status_code=400, detail=f"Tipo de generación no válido: {generation_type}")
+    return await enqueue_job('Boceto3D', user["uid"], job_data)
 
 @router.get("/status/{job_id}")
 async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
@@ -283,33 +179,33 @@ async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_
     if job["user_id"] != user["uid"]:
         raise HTTPException(status_code=403, detail="No tienes permiso para ver este trabajo")
 
-    response = {"status": job["status"]}
+    status_to_report = job["status"]
+    if status_to_report == "pending":
+        status_to_report = "queued"
 
-    if job["status"] == "pending":
-        try:
-            queue_items = list(task_queue._queue)
-            position_in_queue = queue_items.index(job_id) + 1
-
-            total_in_queue = len(queue_items)
-
-            if worker_is_processing.is_set():
-                response["status"] = "queued"
-                response["position_in_queue"] = position_in_queue + 1
-                response["queue_size"] = total_in_queue + 1
-            else:
-                response["status"] = "queued"
-                response["position_in_queue"] = position_in_queue
-                response["queue_size"] = total_in_queue
-                
-        except ValueError:
-            pass
-
+    response = {"status": status_to_report}
+    
     if job["status"] == "completed":
         response["result"] = job["result"]
     elif job["status"] == "failed":
         response["error"] = job["error"]
         
     return response
+
+@router.get("/history/{generation_type}")
+async def get_user_generations(
+    generation_type: str,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    service_instance = SERVICE_INSTANCE_MAP.get(generation_type)
+    if service_instance:
+        try:
+            generations = service_instance.get_generations(user_uid=user["uid"])
+            return generations
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al obtener el historial: {e}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Tipo de generación no válido: {generation_type}")
 
 @router.post("/preview")
 async def upload_generation_preview(
@@ -318,19 +214,13 @@ async def upload_generation_preview(
     prediction_type_api: str = Form(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
-    if not all([preview, generation_name, prediction_type_api]):
-        raise HTTPException(status_code=400, detail="Faltan datos en la solicitud")
-
     service_instance = SERVICE_INSTANCE_MAP.get(prediction_type_api)
-
     if service_instance:
         try:
             updated_doc = service_instance.add_preview_image(
-                user_uid, 
-                generation_name, 
-                preview.file
+                user_uid=user["uid"], 
+                generation_name=generation_name, 
+                preview_file=preview.file
             )
             return updated_doc
         except ValueError as ve:
@@ -346,18 +236,13 @@ async def delete_specific_generation(
     generation_name: str,
     user: Dict[str, Any] = Depends(get_current_user)
 ):
-    user_uid = user["uid"]
-
     service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
-    
     if service_instance:
         try:
-            success = service_instance.delete_generation(user_uid, generation_name)
+            success = service_instance.delete_generation(user_uid=user["uid"], generation_name=generation_name)
             if success:
                 return {"success": True, "message": "Generación eliminada correctamente."}
             else:
-                raise HTTPException(status_code=404, detail="Generación no encontrada")
+                raise HTTPException(status_code=404, detail="Generación no encontrada para eliminar")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error interno al eliminar la generación: {e}")
-    else:
-        raise HTTPException(status_code=400, detail=f"Tipo de predicción no válido: {prediction_type}")
