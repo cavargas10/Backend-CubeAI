@@ -18,10 +18,6 @@ class Boceto3DService(BaseGenerationService):
         super().__init__(collection_name="Boceto3D", readable_name="Boceto a 3D")
         self.gradio_url = os.getenv("CLIENT_BOCETO3D_URL")
 
-    def _get_client(self):
-        logging.warning("El método _get_client está obsoleto, se crea un cliente nuevo por trabajo.")
-        return create_hf_client(self.gradio_url)
-    
     async def create_boceto3d(self, user_uid, image_bytes, image_filename, generation_name, description=""):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
@@ -43,8 +39,8 @@ class Boceto3DService(BaseGenerationService):
 
             preprocess_func = partial(
                 client.predict,
-                image={"background": handle_file(unique_filename), "layers": [handle_file(unique_filename)], "composite": handle_file(unique_filename)},
-                prompt=description or "3D model from sketch",
+                image=handle_file(unique_filename),
+                prompt=description or "A 3D model",
                 negative_prompt="",
                 style_name="3D Model",
                 num_steps=8,
@@ -58,7 +54,7 @@ class Boceto3DService(BaseGenerationService):
             if not processed_image_path or not os.path.exists(processed_image_path):
                 raise FileNotFoundError(f"El archivo preprocesado no se encontró. Respuesta de la API: {processed_image_path}")
             temp_files_to_clean.append(processed_image_path)
-            logging.info(f"Preprocesamiento completado para {generation_name}.")
+            logging.info(f"Preprocesamiento completado para {generation_name}. Archivo en: {processed_image_path}")
 
             get_seed_func = partial(client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
             seed_value = await loop.run_in_executor(None, get_seed_func)
@@ -67,7 +63,7 @@ class Boceto3DService(BaseGenerationService):
 
             image_to_3d_func = partial(
                 client.predict,
-                image=handle_file(processed_image_path),
+                image_path=processed_image_path, 
                 seed=seed_value,
                 ss_guidance_strength=7.5,
                 ss_sampling_steps=12,
@@ -101,7 +97,6 @@ class Boceto3DService(BaseGenerationService):
             end_session_func = partial(client.predict, api_name="/end_session")
             await loop.run_in_executor(None, end_session_func)
             logging.info(f"Sesión de Gradio finalizada para {generation_name}.")
-
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
