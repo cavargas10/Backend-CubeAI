@@ -63,11 +63,11 @@ class Boceto3DService(BaseGenerationService):
 
             image_to_3d_func = partial(
                 client.predict,
-                image_path=processed_image_path, 
+                image_path=handle_file(processed_image_path),
                 seed=seed_value,
                 ss_guidance_strength=7.5,
                 ss_sampling_steps=12,
-                slat_guidance_strength=3,
+                slat_guidance_strength=3.0,
                 slat_sampling_steps=12,
                 api_name="/image_to_3d"
             )
@@ -82,7 +82,12 @@ class Boceto3DService(BaseGenerationService):
                 raise FileNotFoundError(f"El archivo 3D generado no se encontró. Respuesta de la API: {generated_3d_asset}")
             temp_files_to_clean.append(generated_3d_asset)
 
-            extract_glb_func = partial(client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
+            extract_glb_func = partial(
+                client.predict,
+                mesh_simplify=0.95, 
+                texture_size=1024,
+                api_name="/extract_glb"
+            )
             logging.info(f"Extrayendo GLB para el trabajo {generation_name}.")
             result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
             
@@ -97,6 +102,7 @@ class Boceto3DService(BaseGenerationService):
             end_session_func = partial(client.predict, api_name="/end_session")
             await loop.run_in_executor(None, end_session_func)
             logging.info(f"Sesión de Gradio finalizada para {generation_name}.")
+
             generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
