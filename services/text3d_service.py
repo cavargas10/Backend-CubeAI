@@ -20,28 +20,45 @@ class Text3DService(BaseGenerationService):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        full_prompt = f"A {selected_style} 3D render of {user_prompt}. Style: {selected_style}. Emphasize essential features and textures with vibrant colors."
-        temp_files_to_clean = []
+        style_keywords = {
+            "realistic": "photorealistic, 8k, hyper-detailed, octane render, cinematic lighting, ultra-realistic",
+            "disney": "disney pixar style, friendly character, vibrant colors, smooth shading, 3d animation movie style",
+            "anime": "anime key visual, studio ghibli style, cel shaded, japanese animation, detailed character design",
+            "chibi": "chibi style, cute, big expressive eyes, small body, kawaii, miniature",
+            "pixar": "pixar movie style, detailed textures, expressive character, 3d animated film scene",
+        }
 
+        logging.info(f"Estilo seleccionado recibido: '{selected_style}'")
+        
+        if selected_style and selected_style in style_keywords:
+            logging.info(f"Aplicando aumento de prompt para el estilo: {selected_style}")
+            selected_keywords = style_keywords[selected_style]
+            prompt_final = f"{selected_style} style, {selected_keywords}. A 3D model of: {user_prompt}. Detailed, high quality."
+        else:
+            logging.info("No se aplicó un estilo predefinido. Usando el prompt del usuario directamente.")
+            prompt_final = f"A detailed 3D model of: {user_prompt}. high quality, sharp focus."
+
+        logging.info(f"Prompt final enviado a la API: '{prompt_final}'")
+        
+        temp_files_to_clean = []
         client = None
+
         try:
-            logging.info(f"Creando una nueva instancia de cliente Gradio para el trabajo de {generation_name}.")
+            logging.info(f"Creando una nueva instancia de cliente Gradio para el trabajo {generation_name}.")
             client = create_hf_client(self.gradio_url)
-            
             loop = asyncio.get_running_loop()
 
             start_session_func = partial(client.predict, api_name="/start_session")
             await loop.run_in_executor(None, start_session_func)
 
             get_seed_func = partial(client.predict, randomize_seed=True, seed=0, api_name="/get_seed")
-            result_get_seed = await loop.run_in_executor(None, get_seed_func)
-            if not isinstance(result_get_seed, int):
-                raise ValueError(f"Seed inválido: {result_get_seed}")
-            seed_value = result_get_seed
+            seed_value = await loop.run_in_executor(None, get_seed_func)
+            if not isinstance(seed_value, int):
+                raise ValueError(f"Seed inválido: {seed_value}")
 
             text_to_3d_func = partial(
                 client.predict,
-                prompt=full_prompt,
+                prompt=prompt_final,
                 seed=seed_value,
                 ss_guidance_strength=7.5,
                 ss_sampling_steps=25,
@@ -51,7 +68,7 @@ class Text3DService(BaseGenerationService):
             )
             result_text_to_3d = await loop.run_in_executor(None, text_to_3d_func)
             if not isinstance(result_text_to_3d, dict) or "video" not in result_text_to_3d:
-                raise ValueError("Error al generar modelo 3D: respuesta de la API inválida.")
+                raise ValueError(f"Error al generar modelo 3D: respuesta de la API inválida: {result_text_to_3d}")
 
             generated_video_path = result_text_to_3d["video"]
             if not generated_video_path or not os.path.exists(generated_video_path):
@@ -60,7 +77,6 @@ class Text3DService(BaseGenerationService):
 
             extract_glb_func = partial(client.predict, mesh_simplify=0.95, texture_size=1024, api_name="/extract_glb")
             result_extract_glb = await loop.run_in_executor(None, extract_glb_func)
-
             if not result_extract_glb or not isinstance(result_extract_glb, (list, tuple)) or len(result_extract_glb) < 2:
                 raise ValueError(f"Respuesta inesperada de 'extract_glb': {result_extract_glb}")
 
@@ -86,7 +102,7 @@ class Text3DService(BaseGenerationService):
                 "raw_data": {
                     "user_prompt": user_prompt,
                     "selected_style": selected_style,
-                    "full_prompt_sent_to_api": full_prompt,
+                    "full_prompt_sent_to_api": prompt_final,
                 }
             }
 
@@ -106,7 +122,6 @@ class Text3DService(BaseGenerationService):
                         os.remove(file_path)
                     except OSError as e:
                         logging.warning(f"No se pudo eliminar el archivo temporal {file_path}: {e}")
-            
             if client:
                 try:
                     await asyncio.get_running_loop().run_in_executor(None, client.close)

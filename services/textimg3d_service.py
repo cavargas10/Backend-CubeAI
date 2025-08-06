@@ -13,17 +13,35 @@ import tempfile
 import logging
 
 load_dotenv()
-
 class TextImg3DService(BaseGenerationService):
     def __init__(self):
         super().__init__(collection_name="TextoImagen3D", readable_name="Texto a Imagen a 3D")
         self.gradio_url = os.getenv("CLIENT_TEXTOIMAGEN3D_URL")
 
-    async def create_2d_image(self, user_uid, generation_name, subject, style, additional_details):
+    async def create_2d_image(self, user_uid, generation_name, prompt, selected_style):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
-        prompt_generation = f"{subject}, {additional_details}, style {style}, three quarter angle"
+        style_keywords = {
+            "realistic": "photorealistic, 8k, hyper-detailed, octane render, cinematic lighting, ultra-realistic",
+            "disney": "disney pixar style, friendly character, vibrant colors, smooth shading, 3d animation movie style",
+            "anime": "anime key visual, studio ghibli style, cel shaded, japanese animation, detailed character design",
+            "chibi": "chibi style, cute, big expressive eyes, small body, kawaii, miniature",
+            "pixar": "pixar movie style, detailed textures, expressive character, 3d animated film scene",
+        }
+
+        logging.info(f"Estilo seleccionado para imagen 2D: '{selected_style}'")
+        
+        if selected_style and selected_style in style_keywords:
+            logging.info(f"Aplicando aumento de prompt para el estilo 2D: {selected_style}")
+            selected_keywords = style_keywords[selected_style]
+            prompt_final = f"award-winning photo of {prompt}, {selected_keywords}, ({selected_style} style)"
+        else:
+            logging.info("No se aplicó un estilo predefinido. Usando el prompt del usuario para imagen 2D.")
+            prompt_final = f"award-winning photo of {prompt}, 4k, detailed"
+
+        logging.info(f"Prompt final para 2D enviado a la API: '{prompt_final}'")
+        
         generated_image_path = None
         client = None
 
@@ -37,7 +55,7 @@ class TextImg3DService(BaseGenerationService):
 
             generate_image_func = partial(
                 client.predict,
-                prompt=prompt_generation,
+                prompt=prompt_final,
                 seed=42,
                 randomize_seed=True,
                 width=1024,
@@ -88,7 +106,7 @@ class TextImg3DService(BaseGenerationService):
         try:
             logging.info(f"Descargando imagen 2D de {image_url} para el trabajo 3D {generation_name}.")
             async with httpx.AsyncClient() as http_client:
-                response = await http_client.get(image_url, timeout=90.0)
+                response = await http_client.get(image_url, timeout=60.0)
                 response.raise_for_status()
                 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
