@@ -71,18 +71,16 @@ async def enqueue_text_to_2d_image_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = payload.get("generationName")
-    subject = payload.get("subject")
-    style = payload.get("style")
-    additional_details = payload.get("additionalDetails")
+    prompt = payload.get("prompt")
+    selected_style = payload.get("selectedStyle")
 
-    if not all([generation_name, subject, style]):
-         raise HTTPException(status_code=400, detail="Faltan campos requeridos para la generación de imagen 2D.")
+    if not all([generation_name, prompt]):
+         raise HTTPException(status_code=400, detail="Faltan los campos 'generationName' y 'prompt'.")
     
     job_data = {
         "generation_name": generation_name,
-        "subject": subject,
-        "style": style,
-        "additional_details": additional_details or ""
+        "prompt": prompt,
+        "selected_style": selected_style or "none",
     }
     
     return await enqueue_job('TextoImagen2D', user["uid"], job_data)
