@@ -62,7 +62,7 @@ async def update_profile_picture(
         raise HTTPException(status_code=400, detail="No se seleccionó ningún archivo")
 
     try:
-        profile_picture_url = user_service.update_profile_picture(user["uid"], profile_picture.file)
+        profile_picture_url = user_service.update_profile_picture(user["uid"], profile_picture)
         return {"profile_picture": profile_picture_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
