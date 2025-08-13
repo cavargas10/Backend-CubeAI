@@ -167,6 +167,29 @@ async def enqueue_boceto_3d_generation(
     
     return await enqueue_job('Boceto3D', user["uid"], job_data)
 
+@router.post("/Retexturize3D")
+async def enqueue_retexturize_3d_generation(
+    generationName: str = Form(...),
+    model: UploadFile = File(...),
+    texture: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    model_bytes = await model.read()
+    texture_bytes = await texture.read()
+
+    if not model_bytes or not texture_bytes:
+        raise HTTPException(status_code=400, detail="El archivo del modelo y de la textura no pueden estar vacíos.")
+
+    job_data = {
+        "generation_name": generationName,
+        "model_bytes": model_bytes,
+        "model_filename": model.filename,
+        "texture_bytes": texture_bytes,
+        "texture_filename": texture.filename
+    }
+
+    return await enqueue_job('Retexturize3D', user["uid"], job_data)
+
 @router.get("/status/{job_id}")
 async def get_generation_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     job = jobs.get(job_id)

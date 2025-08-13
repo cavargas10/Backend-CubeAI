@@ -3,7 +3,8 @@ import uuid
 from typing import Dict, Any, Coroutine
 from services import (
     text3d_service, img3d_service, textimg3d_service, 
-    unico3d_service, multiimg3d_service, boceto3d_service
+    unico3d_service, multiimg3d_service, boceto3d_service,
+    retexturize3d_service
 )
 import logging
 
@@ -21,6 +22,7 @@ SERVICE_MAP: Dict[str, Coroutine] = {
     'Unico3D': unico3d_service.create_unico3d,
     'MultiImagen3D': multiimg3d_service.create_multiimg3d,
     'Boceto3D': boceto3d_service.create_boceto3d,
+    'Retexturize3D': retexturize3d_service.create_retexture3d,
 }
 
 SEMAPHORES: Dict[str, asyncio.Semaphore] = {
@@ -31,6 +33,7 @@ SEMAPHORES: Dict[str, asyncio.Semaphore] = {
     'Unico3D': asyncio.Semaphore(10),
     'MultiImagen3D': asyncio.Semaphore(10),
     'Boceto3D': asyncio.Semaphore(10),
+    'Retexturize3D': asyncio.Semaphore(10),
 }
 
 def create_job(job_type: str, user_id: str, data: Dict[str, Any]) -> str:

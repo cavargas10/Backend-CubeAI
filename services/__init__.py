@@ -5,6 +5,7 @@ from .textimg3d_service import TextImg3DService
 from .unico3d_service import Unico3DService
 from .multiimg3d_service import MultiImg3DService
 from .boceto3d_service import Boceto3DService
+from .retexturize3d_service import Retexturize3DService
 
 text3d_service = Text3DService()
 img3d_service = Img3DService()
@@ -12,6 +13,7 @@ textimg3d_service = TextImg3DService()
 unico3d_service = Unico3DService()
 multiimg3d_service = MultiImg3DService()
 boceto3d_service = Boceto3DService()
+retexturize3d_service = Retexturize3DService()
 
 SERVICE_INSTANCE_MAP = {
     'Texto3D': text3d_service,
@@ -19,5 +21,6 @@ SERVICE_INSTANCE_MAP = {
     'TextImg3D': textimg3d_service,
     'Unico3D': unico3d_service,
     'MultiImagen3D': multiimg3d_service,
-    'Boceto3D': boceto3d_service
+    'Boceto3D': boceto3d_service,
+    'Retexturize3D': retexturize3d_service
 }
