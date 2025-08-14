@@ -73,7 +73,7 @@ class Retexturize3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
             logging.info(f"Sesión finalizada en Gradio para {generation_name}.")
 
-            generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             retextured_model_url = upload_to_storage(result_path, f'{generation_folder}/model.glb')
             original_model_url = upload_to_storage(temp_model_filename, f'{generation_folder}/original_model.glb')
             texture_image_url = upload_to_storage(temp_texture_filename, f'{generation_folder}/texture_reference.png')

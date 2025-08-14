@@ -71,7 +71,7 @@ class TextImg3DService(BaseGenerationService):
                 raise FileNotFoundError(f"Error al generar la imagen 2D. No se encontró el archivo. Respuesta de la API: {generated_image_path}")
 
             logging.info(f"Imagen 2D generada para {generation_name}. Subiendo a storage...")
-            generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             image_url = upload_to_storage(generated_image_path, f'{generation_folder}/generated_2d_image.png')
 
             end_session_func = partial(client.predict, api_name="/end_session")
@@ -166,7 +166,7 @@ class TextImg3DService(BaseGenerationService):
             end_session_func = partial(client.predict, api_name="/end_session")
             await loop.run_in_executor(None, end_session_func)
             
-            generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
 

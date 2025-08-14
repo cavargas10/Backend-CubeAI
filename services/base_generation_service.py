@@ -24,7 +24,8 @@ class BaseGenerationService:
         if not doc.exists:
             raise ValueError(f"No se encontró la generación '{generation_name}' para el usuario.")
 
-        generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+        generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
+        
         try:
             preview_image_url = upload_to_storage(preview_file, f'{generation_folder}/preview_image.png')
             update_data = {"previewImageUrl": preview_image_url}
@@ -44,7 +45,8 @@ class BaseGenerationService:
         if not doc.exists:
             return False
 
-        generation_folder = f"{user_uid}/{self.collection_name}/{generation_name}"
+        generation_folder = f"users/{user_uid}/generations/{self.collection_name}/{generation_name}"
+        
         try:
             blobs = bucket.list_blobs(prefix=generation_folder)
             for blob in blobs:

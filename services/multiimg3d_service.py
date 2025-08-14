@@ -113,7 +113,7 @@ class MultiImg3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
             logging.info(f"Sesión de Gradio finalizada para {generation_name}.")
 
-            generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
             preprocess_urls = {

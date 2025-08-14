@@ -62,7 +62,7 @@ class Unico3DService(BaseGenerationService):
 
             temp_files_to_clean.append(extracted_glb_path)
 
-            generation_folder = f'{user_uid}/{self.collection_name}/{generation_name}'
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             
             normalized_result = {
