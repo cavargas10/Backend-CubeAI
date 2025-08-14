@@ -44,7 +44,7 @@ class Retexturize3DService(BaseGenerationService):
             await loop.run_in_executor(None, start_session_func)
             logging.info(f"Sesión iniciada en Gradio para {generation_name}.")
 
-            get_seed_func = partial(client.predict, randomize_seed=True, seed=0, api_name="/get_random_seed")
+            get_seed_func = partial(client.predict, randomize_seed=True, seed=2024, api_name="/get_random_seed")
             seed_value = await loop.run_in_executor(None, get_seed_func)
             if not isinstance(seed_value, int):
                 raise ValueError(f"Seed inválido recibido de la API: {seed_value}")
@@ -75,7 +75,6 @@ class Retexturize3DService(BaseGenerationService):
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             retextured_model_url = upload_to_storage(result_path, f'{generation_folder}/model.glb')
-            original_model_url = upload_to_storage(temp_model_filename, f'{generation_folder}/original_model.glb')
             texture_image_url = upload_to_storage(temp_texture_filename, f'{generation_folder}/texture_reference.png')
             
             normalized_result = {
@@ -85,7 +84,6 @@ class Retexturize3DService(BaseGenerationService):
                 "modelUrl": retextured_model_url,
                 "downloads": [{"format": "GLB", "url": retextured_model_url}],
                 "raw_data": {
-                    "original_model_url": original_model_url,
                     "texture_image_url": texture_image_url,
                 }
             }

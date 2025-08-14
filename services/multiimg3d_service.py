@@ -115,11 +115,10 @@ class MultiImg3DService(BaseGenerationService):
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-            preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
-            preprocess_urls = {
-                "frontal": upload_to_storage(preprocess_paths[0], f'{generation_folder}/preprocess_frontal.png'),
-                "lateral": upload_to_storage(preprocess_paths[1], f'{generation_folder}/preprocess_lateral.png'),
-                "trasera": upload_to_storage(preprocess_paths[2], f'{generation_folder}/preprocess_trasera.png')
+            input_urls = {
+                "frontal": upload_to_storage(temp_input_files["frontal"], f'{generation_folder}/input_frontal.png'),
+                "lateral": upload_to_storage(temp_input_files["lateral"], f'{generation_folder}/input_lateral.png'),
+                "trasera": upload_to_storage(temp_input_files["trasera"], f'{generation_folder}/input_trasera.png')
             }
 
             normalized_result = {
@@ -127,9 +126,8 @@ class MultiImg3DService(BaseGenerationService):
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": preview_video_url,
                 "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {"preprocess_image_urls": preprocess_urls}
+                "raw_data": {"input_image_urls": input_urls}
             }
 
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)

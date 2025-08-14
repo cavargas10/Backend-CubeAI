@@ -90,14 +90,12 @@ class Text3DService(BaseGenerationService):
             
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-            preview_video_url = upload_to_storage(generated_video_path, f'{generation_folder}/preview.mp4')
 
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": preview_video_url,
                 "downloads": [{"format": "GLB", "url": glb_url}],
                 "raw_data": {
                     "user_prompt": user_prompt,

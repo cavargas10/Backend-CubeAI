@@ -92,11 +92,18 @@ async def enqueue_textimg3d_generation(
 ):
     generation_name = payload.get("generationName")
     image_url = payload.get("imageUrl")
+    prompt = payload.get("prompt")
+    selected_style = payload.get("selectedStyle")
 
-    if not all([generation_name, image_url]):
-        raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName y imageUrl.")
+    if not all([generation_name, image_url, prompt, selected_style]):
+        raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName, imageUrl, prompt, y selectedStyle.")
 
-    job_data = { "generation_name": generation_name, "image_url": image_url }
+    job_data = { 
+        "generation_name": generation_name, 
+        "image_url": image_url,
+        "prompt": prompt,
+        "selected_style": selected_style
+    }
     
     return await enqueue_job('TextImg3D', user["uid"], job_data)
 

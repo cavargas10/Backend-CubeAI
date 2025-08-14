@@ -81,18 +81,16 @@ class Img3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')        
-            preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')       
-            preprocess_url = upload_to_storage(preprocess_image_path, f'{generation_folder}/preprocess.png')
+            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            input_image_url = upload_to_storage(unique_filename, f'{generation_folder}/input_image.png')
             
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": preview_video_url,
                 "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {"preprocess_image_url": preprocess_url}
+                "raw_data": {"input_image_url": input_image_url}
             }
             
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)

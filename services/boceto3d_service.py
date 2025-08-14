@@ -105,17 +105,18 @@ class Boceto3DService(BaseGenerationService):
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-            preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
-            processed_image_url = upload_to_storage(processed_image_path, f'{generation_folder}/processed_image.png')
-
+            input_image_url = upload_to_storage(unique_filename, f'{generation_folder}/input_image.png')
+            
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": preview_video_url,
                 "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {"description": description, "processed_image_url": processed_image_url}
+                "raw_data": {
+                    "description": description, 
+                    "input_image_url": input_image_url
+                }
             }
 
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)

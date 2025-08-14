@@ -96,7 +96,7 @@ class TextImg3DService(BaseGenerationService):
                 except Exception as e:
                     logging.warning(f"Error al cerrar el cliente Gradio para el trabajo 2D {generation_name}: {e}")
 
-    async def create_3d_from_image(self, user_uid, generation_name, image_url):
+    async def create_3d_from_image(self, user_uid, generation_name, image_url, prompt, selected_style):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe.")
 
@@ -168,16 +168,19 @@ class TextImg3DService(BaseGenerationService):
             
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-            preview_video_url = upload_to_storage(generated_3d_asset, f'{generation_folder}/preview.mp4')
+            input_2d_image_url = image_url
 
             normalized_result = {
-                "generation_name": generation_name,
-                "prediction_type": self.readable_name,
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": glb_url,
-                "previewUrl": preview_video_url,
-                "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {"generated_2d_image_url": image_url}
+            "generation_name": generation_name,
+            "prediction_type": self.readable_name,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "modelUrl": glb_url,
+            "downloads": [{"format": "GLB", "url": glb_url}],
+            "raw_data": {
+                "input_2d_image_url": input_2d_image_url,
+                "user_prompt": prompt,
+                "selected_style": selected_style
+                }
             }
 
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)

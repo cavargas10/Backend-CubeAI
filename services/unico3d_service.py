@@ -70,7 +70,6 @@ class Unico3DService(BaseGenerationService):
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "modelUrl": glb_url,
-                "previewUrl": None,
                 "downloads": [{"format": "GLB", "url": glb_url}],
                 "raw_data": {}
             }
