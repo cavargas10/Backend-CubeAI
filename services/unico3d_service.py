@@ -19,9 +19,6 @@ class Unico3DService(BaseGenerationService):
         self.gradio_url = os.getenv("CLIENT_UNICO3D_URL")
 
     async def create_unico3d(self, user_uid, image_bytes, image_filename, generation_name):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
-
         unique_filename = f"temp_image_unico_{uuid.uuid4().hex}_{image_filename}"
         with open(unique_filename, "wb") as f:
             f.write(image_bytes)
@@ -37,12 +34,12 @@ class Unico3DService(BaseGenerationService):
             generate_func = partial(
                 client.predict, 
                 file(unique_filename),  
-                True,  # render_video 
-                -1,    # seed
-                False, # do_refine
-                True,  # input_processing
-                0.1,   # expansion_weight
-                "std", # init_type
+                True,
+                -1,
+                False,
+                True,
+                0.1,
+                "std",
                 api_name="/generate3dv2" 
             )
             
@@ -62,16 +59,22 @@ class Unico3DService(BaseGenerationService):
 
             temp_files_to_clean.append(extracted_glb_path)
 
-            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'            
+            glb_url_base = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            input_image_url = upload_to_storage(unique_filename, f'{generation_folder}/input_image.png')
+            
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            glb_url_with_cache_buster = f"{glb_url_base}{timestamp_query}"
             
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": glb_url,
-                "downloads": [{"format": "GLB", "url": glb_url}],
-                "raw_data": {}
+                "modelUrl": glb_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": glb_url_with_cache_buster}],
+                "raw_data": {
+                    "input_image_url": input_image_url
+                }
             }
 
             doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)
