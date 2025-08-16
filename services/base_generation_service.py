@@ -56,3 +56,32 @@ class BaseGenerationService:
 
         doc_ref.delete()
         return True
+    
+    def clear_generation_storage(self, user_uid: str, generation_name: str) -> bool:
+        """
+        Elimina solo los archivos de Firebase Storage asociados a una generación,
+        pero deja el documento de Firestore intacto.
+        """
+        doc_ref = db.collection('predictions').document(user_uid).collection(self.collection_name).document(generation_name)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            logging.warning(f"Se intentó limpiar el storage de una generación no existente: {generation_name}")
+            return False
+
+        generation_folder = f"users/{user_uid}/generations/{self.collection_name}/{generation_name}"
+        try:
+            blobs = bucket.list_blobs(prefix=generation_folder)
+            blobs_to_delete = list(blobs) # Convertir a lista para evitar problemas de iterador
+            if not blobs_to_delete:
+                logging.info(f"No se encontraron archivos en Storage para limpiar para {generation_name}.")
+                return True
+
+            for blob in blobs_to_delete:
+                blob.delete()
+            
+            logging.info(f"Archivos de Storage para {generation_name} eliminados exitosamente.")
+            return True
+        except Exception as e:
+            logging.error(f"Error al limpiar los archivos de Storage para {generation_name}: {e}", exc_info=True)
+            return False
