@@ -166,7 +166,7 @@ async def enqueue_multi_image_3d_generation(
         "generation_name": generation_name,
         "frontal_bytes": frontal_bytes,
         "lateral_bytes": lateral_bytes,
-        "trasera_bytes": trasera_bytes
+        "trasera_bytes": trasera_bytes, 
     }
 
     return await enqueue_job('MultiImagen3D', user["uid"], job_data)
@@ -332,11 +332,6 @@ async def regenerate_multi_image_to_3d(
         "frontal_bytes": frontal_bytes,
         "lateral_bytes": lateral_bytes,
         "trasera_bytes": trasera_bytes,
-        "filenames": {
-            "frontal": frontal.filename,
-            "lateral": lateral.filename,
-            "trasera": trasera.filename
-        }
     }
     
     return await enqueue_job(prediction_type, user["uid"], job_data)
