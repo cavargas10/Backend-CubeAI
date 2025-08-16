@@ -19,9 +19,6 @@ class Boceto3DService(BaseGenerationService):
         self.gradio_url = os.getenv("CLIENT_BOCETO3D_URL")
 
     async def create_boceto3d(self, user_uid, image_bytes, image_filename, generation_name, description=""):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
-
         unique_filename = f"temp_boceto_{uuid.uuid4().hex}_{image_filename}"
         with open(unique_filename, "wb") as f:
             f.write(image_bytes)
@@ -103,16 +100,19 @@ class Boceto3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
             logging.info(f"Sesión de Gradio finalizada para {generation_name}.")
 
-            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'            
+            glb_url_base = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             input_image_url = upload_to_storage(unique_filename, f'{generation_folder}/input_image.png')
-            
+
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            glb_url_with_cache_buster = f"{glb_url_base}{timestamp_query}"
+
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": glb_url,
-                "downloads": [{"format": "GLB", "url": glb_url}],
+                "modelUrl": glb_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": glb_url_with_cache_buster}],
                 "raw_data": {
                     "description": description, 
                     "input_image_url": input_image_url

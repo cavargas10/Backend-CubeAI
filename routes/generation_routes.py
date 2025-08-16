@@ -179,6 +179,10 @@ async def enqueue_boceto_3d_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = generationName
+    service_instance = SERVICE_INSTANCE_MAP.get('Boceto3D')
+    if service_instance._generation_exists(user["uid"], generation_name):
+        raise HTTPException(status_code=409, detail="El nombre de la generación ya existe.")
+
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
@@ -332,6 +336,38 @@ async def regenerate_multi_image_to_3d(
         "frontal_bytes": frontal_bytes,
         "lateral_bytes": lateral_bytes,
         "trasera_bytes": trasera_bytes,
+    }
+    
+    return await enqueue_job(prediction_type, user["uid"], job_data)
+
+@router.put("/Boceto3D/{generation_name}")
+async def regenerate_boceto_to_3d(
+    generation_name: str,
+    image: UploadFile = File(...),
+    description: Optional[str] = Form(""),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    prediction_type = "Boceto3D"
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
+
+    success = service_instance.clear_generation_storage(user_uid=user["uid"], generation_name=generation_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al limpiar la generación anterior.")
+
+    doc_ref = db.collection('predictions').document(user["uid"]).collection(prediction_type).document(generation_name)
+    doc_ref.update({
+        "modelUrl": None, "previewImageUrl": None, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+    
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+
+    job_data = {
+        "generation_name": generation_name,
+        "image_bytes": image_bytes,
+        "image_filename": image.filename,
+        "description": description,
     }
     
     return await enqueue_job(prediction_type, user["uid"], job_data)
