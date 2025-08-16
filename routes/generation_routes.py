@@ -35,15 +35,15 @@ async def enqueue_text3d_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = payload.get("generationName")
-    user_prompt_from_payload = payload.get("prompt")
+    prompt = payload.get("prompt")
     selected_style = payload.get("selectedStyle")
 
-    if not all([generation_name, user_prompt_from_payload, selected_style]):
+    if not all([generation_name, prompt, selected_style]):
         raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName, prompt, selectedStyle")
 
     job_data = {
         "generation_name": generation_name,
-        "prompt": user_prompt_from_payload,
+        "prompt": prompt,
         "selected_style": selected_style
     }
     
@@ -55,12 +55,14 @@ async def enqueue_image3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    generation_name = generationName
+
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
 
     job_data = {
-        "generation_name": generationName,
+        "generation_name": generation_name,
         "image_bytes": image_bytes, 
         "image_filename": image.filename 
     }
@@ -115,12 +117,13 @@ async def enqueue_unico3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    generation_name = generationName
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
     
     job_data = {
-        "generation_name": generationName,
+        "generation_name": generation_name,
         "image_bytes": image_bytes, 
         "image_filename": image.filename 
     }
@@ -135,6 +138,7 @@ async def enqueue_multi_image_3d_generation(
     trasera: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    generation_name = generationName
     frontal_bytes = await frontal.read()
     lateral_bytes = await lateral.read()
     trasera_bytes = await trasera.read()
@@ -143,7 +147,7 @@ async def enqueue_multi_image_3d_generation(
         raise HTTPException(status_code=400, detail="Uno o más archivos de imagen están vacíos.")
 
     job_data = {
-        "generation_name": generationName,
+        "generation_name": generation_name,
         "frontal_bytes": frontal_bytes,
         "lateral_bytes": lateral_bytes,
         "trasera_bytes": trasera_bytes,
@@ -163,12 +167,13 @@ async def enqueue_boceto_3d_generation(
     image: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    generation_name = generationName
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
 
     job_data = {
-        "generation_name": generationName,
+        "generation_name": generation_name,
         "image_bytes": image_bytes,
         "image_filename": image.filename,
         "description": description
@@ -183,6 +188,7 @@ async def enqueue_retexturize_3d_generation(
     texture: UploadFile = File(...),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    generation_name = generationName
     model_bytes = await model.read()
     texture_bytes = await texture.read()
 
@@ -190,7 +196,7 @@ async def enqueue_retexturize_3d_generation(
         raise HTTPException(status_code=400, detail="El archivo del modelo y de la textura no pueden estar vacíos.")
 
     job_data = {
-        "generation_name": generationName,
+        "generation_name": generation_name,
         "model_bytes": model_bytes,
         "model_filename": model.filename,
         "texture_bytes": texture_bytes,
@@ -220,8 +226,10 @@ async def regenerate_generation(
         "previewImageUrl": None,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     })
-
-    job_data = payload
+    job_data = {
+        "prompt": payload.get("prompt"),
+        "selected_style": payload.get("selectedStyle")
+    }
     job_data['generation_name'] = generation_name
     
     return await enqueue_job(prediction_type, user["uid"], job_data)
