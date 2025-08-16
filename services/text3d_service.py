@@ -17,9 +17,6 @@ class Text3DService(BaseGenerationService):
         self.gradio_url = os.getenv("CLIENT_TEXTO3D_URL")
 
     async def create_text3d(self, user_uid, generation_name, prompt, selected_style):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
-
         style_keywords = {
             "realistic": "photorealistic, 8k, hyper-detailed, octane render, cinematic lighting, ultra-realistic",
             "disney": "disney pixar style, friendly character, vibrant colors, smooth shading, 3d animation movie style",

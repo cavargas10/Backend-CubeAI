@@ -41,6 +41,10 @@ async def enqueue_text3d_generation(
     if not all([generation_name, prompt, selected_style]):
         raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName, prompt, selectedStyle")
 
+    service_instance = SERVICE_INSTANCE_MAP.get('Texto3D')
+    if service_instance._generation_exists(user["uid"], generation_name):
+        raise HTTPException(status_code=409, detail="El nombre de la generación ya existe. Por favor, elige otro nombre.")
+
     job_data = {
         "generation_name": generation_name,
         "prompt": prompt,
