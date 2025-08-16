@@ -150,6 +150,11 @@ async def enqueue_multi_image_3d_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = generationName
+    
+    service_instance = SERVICE_INSTANCE_MAP.get('MultiImagen3D')
+    if service_instance._generation_exists(user["uid"], generation_name):
+        raise HTTPException(status_code=409, detail="El nombre de la generación ya existe.")
+
     frontal_bytes = await frontal.read()
     lateral_bytes = await lateral.read()
     trasera_bytes = await trasera.read()
@@ -161,12 +166,7 @@ async def enqueue_multi_image_3d_generation(
         "generation_name": generation_name,
         "frontal_bytes": frontal_bytes,
         "lateral_bytes": lateral_bytes,
-        "trasera_bytes": trasera_bytes,
-        "filenames": {
-            "frontal": frontal.filename,
-            "lateral": lateral.filename,
-            "trasera": trasera.filename
-        }
+        "trasera_bytes": trasera_bytes
     }
 
     return await enqueue_job('MultiImagen3D', user["uid"], job_data)
@@ -296,6 +296,47 @@ async def regenerate_unico_to_3d(
         "generation_name": generation_name,
         "image_bytes": image_bytes,
         "image_filename": image.filename,
+    }
+    
+    return await enqueue_job(prediction_type, user["uid"], job_data)
+
+@router.put("/MultiImagen3D/{generation_name}")
+async def regenerate_multi_image_to_3d(
+    generation_name: str,
+    frontal: UploadFile = File(...),
+    lateral: UploadFile = File(...),
+    trasera: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    prediction_type = "MultiImagen3D"
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
+
+    success = service_instance.clear_generation_storage(user_uid=user["uid"], generation_name=generation_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al limpiar la generación anterior.")
+
+    doc_ref = db.collection('predictions').document(user["uid"]).collection(prediction_type).document(generation_name)
+    doc_ref.update({
+        "modelUrl": None, "previewImageUrl": None, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+    
+    frontal_bytes = await frontal.read()
+    lateral_bytes = await lateral.read()
+    trasera_bytes = await trasera.read()
+
+    if not all([frontal_bytes, lateral_bytes, trasera_bytes]):
+        raise HTTPException(status_code=400, detail="Uno o más archivos de imagen están vacíos.")
+
+    job_data = {
+        "generation_name": generation_name,
+        "frontal_bytes": frontal_bytes,
+        "lateral_bytes": lateral_bytes,
+        "trasera_bytes": trasera_bytes,
+        "filenames": {
+            "frontal": frontal.filename,
+            "lateral": lateral.filename,
+            "trasera": trasera.filename
+        }
     }
     
     return await enqueue_job(prediction_type, user["uid"], job_data)

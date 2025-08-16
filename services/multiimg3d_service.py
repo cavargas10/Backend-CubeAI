@@ -18,9 +18,7 @@ class MultiImg3DService(BaseGenerationService):
         super().__init__(collection_name="MultiImagen3D", readable_name="Multi Imagen a 3D")
         self.gradio_url = os.getenv("CLIENT_MULTI3D_URL")
 
-    async def create_multiimg3d(self, user_uid, frontal_bytes, lateral_bytes, trasera_bytes, generation_name, filenames=None):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
+    async def create_multiimg3d(self, user_uid, frontal_bytes, lateral_bytes, trasera_bytes, generation_name):
 
         temp_input_files = {
             "frontal": f"temp_frontal_{uuid.uuid4().hex}.png",
@@ -114,19 +112,23 @@ class MultiImg3DService(BaseGenerationService):
             logging.info(f"Sesión de Gradio finalizada para {generation_name}.")
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            
+            glb_url_base = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             input_urls = {
                 "frontal": upload_to_storage(temp_input_files["frontal"], f'{generation_folder}/input_frontal.png'),
                 "lateral": upload_to_storage(temp_input_files["lateral"], f'{generation_folder}/input_lateral.png'),
                 "trasera": upload_to_storage(temp_input_files["trasera"], f'{generation_folder}/input_trasera.png')
             }
 
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            glb_url_with_cache_buster = f"{glb_url_base}{timestamp_query}"
+
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": glb_url,
-                "downloads": [{"format": "GLB", "url": glb_url}],
+                "modelUrl": glb_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": glb_url_with_cache_buster}],
                 "raw_data": {"input_image_urls": input_urls}
             }
 
