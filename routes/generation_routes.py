@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Body, Form, UploadFile, File, Request
 from typing import Dict, Any, Optional
 from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
@@ -60,6 +60,10 @@ async def enqueue_image3d_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = generationName
+
+    service_instance = SERVICE_INSTANCE_MAP.get('Imagen3D')
+    if service_instance._generation_exists(user["uid"], generation_name):
+        raise HTTPException(status_code=409, detail="El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
     image_bytes = await image.read()
     if not image_bytes:
@@ -209,8 +213,46 @@ async def enqueue_retexturize_3d_generation(
 
     return await enqueue_job('Retexturize3D', user["uid"], job_data)
 
+@router.put("/regenerate-with-files/{prediction_type}/{generation_name}")
+async def regenerate_generation_with_files(
+    request: Request,
+    prediction_type: str,
+    generation_name: str,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
+    if not service_instance:
+        raise HTTPException(status_code=400, detail=f"Tipo de predicción no válido: {prediction_type}")
+
+    success = service_instance.clear_generation_storage(user_uid=user["uid"], generation_name=generation_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al limpiar la generación anterior.")
+
+    doc_ref = db.collection('predictions').document(user["uid"]).collection(prediction_type).document(generation_name)
+    doc_ref.update({
+        "modelUrl": None,
+        "previewImageUrl": None,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+
+    form = await request.form()
+    job_data = {}
+
+    if prediction_type == "Imagen3D":
+        image = form.get("image")
+        image_bytes = await image.read()
+        job_data = {
+            "generation_name": generation_name,
+            "image_bytes": image_bytes,
+            "image_filename": image.filename,
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"La regeneración con archivos no está soportada para {prediction_type}")
+
+    return await enqueue_job(prediction_type, user["uid"], job_data)
+
 @router.put("/{prediction_type}/{generation_name}")
-async def regenerate_generation(
+async def regenerate_generation_json(
     prediction_type: str,
     generation_name: str,
     payload: Dict[str, Any] = Body(...),
