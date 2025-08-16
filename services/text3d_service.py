@@ -86,14 +86,17 @@ class Text3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
             
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+            glb_url_base = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
             
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            glb_url_with_cache_buster = f"{glb_url_base}{timestamp_query}"
+
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": glb_url,
-                "downloads": [{"format": "GLB", "url": glb_url}],
+                "modelUrl": glb_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": glb_url_with_cache_buster}],
                 "raw_data": {
                     "user_prompt": prompt,
                     "selected_style": selected_style,
