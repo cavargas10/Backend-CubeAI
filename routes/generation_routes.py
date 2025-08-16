@@ -35,15 +35,15 @@ async def enqueue_text3d_generation(
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     generation_name = payload.get("generationName")
-    user_prompt = payload.get("prompt")
+    user_prompt_from_payload = payload.get("prompt")
     selected_style = payload.get("selectedStyle")
 
-    if not all([generation_name, user_prompt, selected_style]):
+    if not all([generation_name, user_prompt_from_payload, selected_style]):
         raise HTTPException(status_code=400, detail="Faltan campos requeridos: generationName, prompt, selectedStyle")
 
     job_data = {
         "generation_name": generation_name,
-        "user_prompt": user_prompt,
+        "prompt": user_prompt_from_payload,
         "selected_style": selected_style
     }
     
