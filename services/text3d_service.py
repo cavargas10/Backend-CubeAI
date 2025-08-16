@@ -16,7 +16,7 @@ class Text3DService(BaseGenerationService):
         super().__init__(collection_name="Texto3D", readable_name="Texto a 3D")
         self.gradio_url = os.getenv("CLIENT_TEXTO3D_URL")
 
-    async def create_text3d(self, user_uid, generation_name, user_prompt, selected_style):
+    async def create_text3d(self, user_uid, generation_name, prompt, selected_style):
         if self._generation_exists(user_uid, generation_name):
             raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
 
@@ -33,10 +33,10 @@ class Text3DService(BaseGenerationService):
         if selected_style and selected_style in style_keywords:
             logging.info(f"Aplicando aumento de prompt para el estilo: {selected_style}")
             selected_keywords = style_keywords[selected_style]
-            prompt_final = f"{selected_style} style, {selected_keywords}. A 3D model of: {user_prompt}. Detailed, high quality."
+            prompt_final = f"{selected_style} style, {selected_keywords}. A 3D model of: {prompt}. Detailed, high quality."
         else:
             logging.info("No se aplicó un estilo predefinido. Usando el prompt del usuario directamente.")
-            prompt_final = f"A detailed 3D model of: {user_prompt}. high quality, sharp focus."
+            prompt_final = f"A detailed 3D model of: {prompt}. high quality, sharp focus."
 
         logging.info(f"Prompt final enviado a la API: '{prompt_final}'")
         
@@ -90,7 +90,7 @@ class Text3DService(BaseGenerationService):
             
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
             glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-
+            
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
@@ -98,7 +98,7 @@ class Text3DService(BaseGenerationService):
                 "modelUrl": glb_url,
                 "downloads": [{"format": "GLB", "url": glb_url}],
                 "raw_data": {
-                    "user_prompt": user_prompt,
+                    "user_prompt": prompt,
                     "selected_style": selected_style,
                     "full_prompt_sent_to_api": prompt_final,
                 }
