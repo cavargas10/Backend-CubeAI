@@ -4,6 +4,8 @@ from queue_manager import task_queue, create_job, jobs
 from middleware.auth_middleware_fastapi import get_current_user
 from services import SERVICE_INSTANCE_MAP
 import logging
+from config.firebase_config import db
+import datetime
 
 router = APIRouter(
     prefix="/generation",  
@@ -173,7 +175,7 @@ async def enqueue_boceto_3d_generation(
     }
     
     return await enqueue_job('Boceto3D', user["uid"], job_data)
-
+    
 @router.post("/Retexturize3D")
 async def enqueue_retexturize_3d_generation(
     generationName: str = Form(...),
@@ -207,7 +209,7 @@ async def regenerate_generation(
     service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
     if not service_instance:
         raise HTTPException(status_code=400, detail=f"Tipo de predicción no válido: {prediction_type}")
-    
+
     success = service_instance.clear_generation_storage(user_uid=user["uid"], generation_name=generation_name)
     if not success:
         raise HTTPException(status_code=500, detail="Error al limpiar la generación anterior. Inténtalo de nuevo.")
