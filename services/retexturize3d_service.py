@@ -21,9 +21,8 @@ class Retexturize3DService(BaseGenerationService):
             raise ValueError("La URL del cliente de Gradio para Retexturize3D no está configurada en .env")
 
     async def create_retexture3d(self, user_uid, generation_name, model_bytes, model_filename, texture_bytes, texture_filename):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe. Por favor, elige otro nombre.")
-
+        # La comprobación de existencia ahora se maneja en la ruta POST
+        
         temp_model_filename = f"temp_model_{uuid.uuid4().hex}_{model_filename}"
         temp_texture_filename = f"temp_texture_{uuid.uuid4().hex}_{texture_filename}"
         
@@ -74,15 +73,19 @@ class Retexturize3DService(BaseGenerationService):
             logging.info(f"Sesión finalizada en Gradio para {generation_name}.")
 
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            retextured_model_url = upload_to_storage(result_path, f'{generation_folder}/model.glb')
+            
+            retextured_model_url_base = upload_to_storage(result_path, f'{generation_folder}/model.glb')
             texture_image_url = upload_to_storage(temp_texture_filename, f'{generation_folder}/texture_reference.png')
+            
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            retextured_model_url_with_cache_buster = f"{retextured_model_url_base}{timestamp_query}"
             
             normalized_result = {
                 "generation_name": generation_name,
                 "prediction_type": self.readable_name,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "modelUrl": retextured_model_url,
-                "downloads": [{"format": "GLB", "url": retextured_model_url}],
+                "modelUrl": retextured_model_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": retextured_model_url_with_cache_buster}],
                 "raw_data": {
                     "texture_image_url": texture_image_url,
                 }
