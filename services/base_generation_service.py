@@ -1,6 +1,6 @@
+import logging
 from config.firebase_config import db, bucket
 from utils.storage_utils import upload_to_storage
-from flask import current_app
 
 class BaseGenerationService:
     def __init__(self, collection_name: str, readable_name: str):
@@ -35,7 +35,8 @@ class BaseGenerationService:
             updated_doc_data.update(update_data)
             return updated_doc_data
         except Exception as e:
-            current_app.logger.error(f"Error al subir preview para {generation_name}: {e}", exc_info=True)
+            # --- CAMBIO AQUÍ: Reemplazado current_app.logger por logging ---
+            logging.error(f"Error al subir preview para {generation_name}: {e}", exc_info=True)
             raise 
 
     def delete_generation(self, user_uid: str, generation_name: str) -> bool:
@@ -52,11 +53,12 @@ class BaseGenerationService:
             for blob in blobs:
                 blob.delete()
         except Exception as e:
-            current_app.logger.error(f"Error al eliminar archivos de Storage para {generation_name}: {e}", exc_info=True)
+            # --- CAMBIO AQUÍ: Reemplazado current_app.logger por logging ---
+            logging.error(f"Error al eliminar archivos de Storage para {generation_name}: {e}", exc_info=True)
 
         doc_ref.delete()
         return True
-    
+
     def clear_generation_storage(self, user_uid: str, generation_name: str) -> bool:
         """
         Elimina solo los archivos de Firebase Storage asociados a una generación,
@@ -72,7 +74,7 @@ class BaseGenerationService:
         generation_folder = f"users/{user_uid}/generations/{self.collection_name}/{generation_name}"
         try:
             blobs = bucket.list_blobs(prefix=generation_folder)
-            blobs_to_delete = list(blobs) # Convertir a lista para evitar problemas de iterador
+            blobs_to_delete = list(blobs)
             if not blobs_to_delete:
                 logging.info(f"No se encontraron archivos en Storage para limpiar para {generation_name}.")
                 return True
