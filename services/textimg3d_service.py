@@ -13,9 +13,10 @@ import tempfile
 import logging
 
 load_dotenv()
+
 class TextImg3DService(BaseGenerationService):
     def __init__(self):
-        super().__init__(collection_name="TextoImagen3D", readable_name="Texto a Imagen a 3D")
+        super().__init__(collection_name="TextImg3D", readable_name="Texto a Imagen a 3D")
         self.gradio_url = os.getenv("CLIENT_TEXTOIMAGEN3D_URL")
 
     async def create_2d_image(self, user_uid, generation_name, prompt, selected_style):
@@ -96,10 +97,7 @@ class TextImg3DService(BaseGenerationService):
                 except Exception as e:
                     logging.warning(f"Error al cerrar el cliente Gradio para el trabajo 2D {generation_name}: {e}")
 
-    async def create_3d_from_image(self, user_uid, generation_name, image_url, prompt, selected_style):
-        if self._generation_exists(user_uid, generation_name):
-            raise ValueError("El nombre de la generación ya existe.")
-
+    async def create_3d_from_image(self, user_uid, generation_name, image_url, prompt, selected_style):        
         temp_files_to_clean = []
         client = None
         
@@ -167,19 +165,21 @@ class TextImg3DService(BaseGenerationService):
             await loop.run_in_executor(None, end_session_func)
             
             generation_folder = f'users/{user_uid}/generations/{self.collection_name}/{generation_name}'
-            glb_url = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
-            input_2d_image_url = image_url
+            glb_url_base = upload_to_storage(extracted_glb_path, f'{generation_folder}/model.glb')
+
+            timestamp_query = f"?v={int(datetime.datetime.now().timestamp())}"
+            glb_url_with_cache_buster = f"{glb_url_base}{timestamp_query}"
 
             normalized_result = {
-            "generation_name": generation_name,
-            "prediction_type": self.readable_name,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "modelUrl": glb_url,
-            "downloads": [{"format": "GLB", "url": glb_url}],
-            "raw_data": {
-                "input_2d_image_url": input_2d_image_url,
-                "user_prompt": prompt,
-                "selected_style": selected_style
+                "generation_name": generation_name,
+                "prediction_type": self.readable_name,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "modelUrl": glb_url_with_cache_buster,
+                "downloads": [{"format": "GLB", "url": glb_url_with_cache_buster}],
+                "raw_data": {
+                    "input_2d_image_url": image_url,
+                    "user_prompt": prompt,
+                    "selected_style": selected_style,
                 }
             }
 

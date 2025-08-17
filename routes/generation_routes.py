@@ -376,6 +376,32 @@ async def regenerate_boceto_to_3d(
     
     return await enqueue_job(prediction_type, user["uid"], job_data)
 
+@router.put("/TextImg3D/{generation_name}")
+async def regenerate_text_image_to_3d(
+    generation_name: str,
+    payload: Dict[str, Any] = Body(...),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    prediction_type = "TextImg3D"
+    service_instance = SERVICE_INSTANCE_MAP.get(prediction_type)
+    
+    success = service_instance.clear_generation_storage(user_uid=user["uid"], generation_name=generation_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al limpiar la generación anterior.")
+
+    doc_ref = db.collection('predictions').document(user["uid"]).collection(prediction_type).document(generation_name)
+    doc_ref.update({
+        "modelUrl": None, "previewImageUrl": None, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+    job_data = {
+        "generation_name": generation_name,
+        "image_url": payload.get("imageUrl"),
+        "prompt": payload.get("prompt"),
+        "selected_style": payload.get("selectedStyle")
+    }
+    
+    return await enqueue_job(prediction_type, user["uid"], job_data)
+
 @router.put("/Retexturize3D/{generation_name}")
 async def regenerate_retexture_3d(
     generation_name: str,
